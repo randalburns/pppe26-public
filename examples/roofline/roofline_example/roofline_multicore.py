@@ -31,13 +31,19 @@ def main():
                          metavar=("LABEL", "AI", "GFLOPS"),
                          help="overlay a kernel point; may be repeated")
     parser.add_argument("--title", default="")
+    parser.add_argument("--machine", default="",
+                         help="CPU name for the default title")
+    parser.add_argument("--cores", default="",
+                         help="core mix for the default title, e.g. 4P+6E")
     parser.add_argument("--show", action="store_true",
                          help="open an interactive window (blocks until closed); "
                               "off by default so this can run headless")
     ns = parser.parse_args()
 
     pts = [(lbl, float(ai), float(gf)) for lbl, ai, gf in (ns.point or [])]
-    title = ns.title or f"Roofline Model — Apple M5 ({ns.threads} threads, FP32, aggregate)"
+    machine = f" — {ns.machine}" if ns.machine else ""
+    cores   = f", {ns.cores}" if ns.cores else ""
+    title = ns.title or f"Roofline Model{machine} ({ns.threads} threads{cores}, FP32, aggregate)"
     roofline.plot_roofline(ns.peak_bw, ns.simd_fma, ns.simd_nofma,
                             ns.scalar_fma, ns.scalar_nofma,
                             points=pts, title=title, show=ns.show,

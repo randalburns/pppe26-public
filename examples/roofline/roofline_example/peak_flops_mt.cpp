@@ -145,10 +145,10 @@ int main() {
     double scalar_fma_gf   = aggregate_gflops(nthreads, run_scalar_fma,    60.0);
     double scalar_nofma_gf = aggregate_gflops(nthreads, run_scalar_nofma,  30.0);
 
-    printf("FP32 SIMD FMA   (NEON x4), aggregate: %8.2f GFLOPS/s\n", simd_fma_gf);
-    printf("FP32 SIMD no-FMA, aggregate         : %8.2f GFLOPS/s\n", simd_nofma_gf);
-    printf("FP32 scalar FMA, aggregate          : %8.2f GFLOPS/s\n", scalar_fma_gf);
-    printf("FP32 scalar no-FMA, aggregate        : %8.2f GFLOPS/s\n", scalar_nofma_gf);
+    printf("FP32 SIMD FMA   (NEON x4), aggregate: %8.2f GFLOP/s\n", simd_fma_gf);
+    printf("FP32 SIMD no-FMA, aggregate         : %8.2f GFLOP/s\n", simd_nofma_gf);
+    printf("FP32 scalar FMA, aggregate          : %8.2f GFLOP/s\n", scalar_fma_gf);
+    printf("FP32 scalar no-FMA, aggregate        : %8.2f GFLOP/s\n", scalar_nofma_gf);
     printf("PEAK_GFLOPS_SIMD_FMA_MT=%.2f\n",    simd_fma_gf);
     printf("PEAK_GFLOPS_SIMD_NOFMA_MT=%.2f\n",  simd_nofma_gf);
     printf("PEAK_GFLOPS_SCALAR_FMA_MT=%.2f\n",  scalar_fma_gf);

@@ -72,7 +72,7 @@ int main() {
     printf("stencil  %dx%dx%d (best of %d)\n", NX, NY, NZ, NTIMES);
     printf("  Time:        %.3f ms\n",        best_t * 1000.0);
     printf("  Arith. Int.: %.4f FLOP/byte\n", ai);
-    printf("  Performance: %.4f GFLOPS/s\n",  gflops);
+    printf("  Performance: %.4f GFLOP/s\n",  gflops);
     printf("STENCIL_AI=%.4f\n",     ai);
     printf("STENCIL_GFLOPS=%.4f\n", gflops);
     return 0;

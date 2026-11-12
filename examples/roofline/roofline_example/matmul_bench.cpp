@@ -64,7 +64,7 @@ int main(int argc, char* argv[]) {
     printf("  Time:        %.3f ms\n",        best_t * 1000.0);
     printf("  FLOP:        %.3f GFLOP\n",     flops / 1e9);
     printf("  Arith. Int.: %.2f FLOP/byte\n", ai);
-    printf("  Performance: %.2f GFLOPS/s\n",  gflops);
+    printf("  Performance: %.2f GFLOP/s\n",  gflops);
     printf("SGEMM_AI=%.4f\n",     ai);
     printf("SGEMM_GFLOPS=%.4f\n", gflops);
     return 0;

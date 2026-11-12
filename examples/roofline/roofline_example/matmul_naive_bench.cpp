@@ -14,14 +14,14 @@
 //
 // Tile-shape history — three attempts to make SIMD FMA look as good as it
 // should, each one tested and measured rather than assumed:
-//  1. MR=4 rows x 1 vector column (4 accumulators). SIMD FMA (~37 GFLOPS/s)
-//     measured *slower* than SIMD mul+add (~47 GFLOPS/s), despite fmla being
+//  1. MR=4 rows x 1 vector column (4 accumulators). SIMD FMA (~37 GFLOP/s)
+//     measured *slower* than SIMD mul+add (~47 GFLOP/s), despite fmla being
 //     fewer instructions. First theory: the compiler scheduled the two
 //     versions differently (mul+add loads all 4 A broadcasts before
 //     consuming any of them; FMA interleaves each load with the fmla that
 //     immediately consumes it). Tested directly with hand-written inline
 //     assembly forcing the mul+add-style load order onto the FMA kernel —
-//     made no difference at all (same ~38 GFLOPS/s, bit-exact correct
+//     made no difference at all (same ~38 GFLOP/s, bit-exact correct
 //     output). Scheduling was not the cause.
 //  2. MR=8 rows x 1 vector column (8 accumulators). Reasoned that a fused
 //     fmla's full latency sits on the loop-carried critical path every k
@@ -35,8 +35,8 @@
 //     ratio regardless of row count. Swept tile shapes directly (see the
 //     conversation, not reproduced here) and found MR=4 rows x 4 vector
 //     columns (16 accumulators, 2 loads -> 4 FMA per load-ish reuse) gets
-//     SIMD FMA to ~124 GFLOPS/s (93% of the 133.8 ceiling) against SIMD
-//     mul+add's ~69 GFLOPS/s — FMA finally wins by the large margin fewer
+//     SIMD FMA to ~124 GFLOP/s (93% of the 133.8 ceiling) against SIMD
+//     mul+add's ~69 GFLOP/s — FMA finally wins by the large margin fewer
 //     instructions should predict. The scalar kernels never had this
 //     problem: their original 4x4 tile (16 scalar accumulators, 4 rows x 4
 //     columns) already reused both A and B and lands at/above the scalar
@@ -262,7 +262,7 @@ int main() {
         std::vector<float> C(N * N);
         double t = time_variant(v.fn, A.data(), B.data(), C.data(), N);
         double gflops = flops / t / 1e9;
-        printf("  %-10s %8.3f ms   %8.2f GFLOPS/s\n", v.name, t * 1000.0, gflops);
+        printf("  %-10s %8.3f ms   %8.2f GFLOP/s\n", v.name, t * 1000.0, gflops);
         printf("%s_GFLOPS=%.4f\n", v.tag, gflops);
         if (&v == &variants[0]) refC00 = C[0];
         else if (std::abs(C[0] - refC00) > 1e-2f * std::abs(refC00))

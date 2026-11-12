@@ -67,7 +67,7 @@ int main() {
     printf("dot product (MT)  N=%zuM floats, %u threads (best of %d)\n", N >> 20, nthreads, NTIMES);
     printf("  Time:        %.3f ms\n",        best_t * 1000.0);
     printf("  Arith. Int.: %.4f FLOP/byte\n", ai);
-    printf("  Performance: %.4f GFLOPS/s\n",  gflops);
+    printf("  Performance: %.4f GFLOP/s\n",  gflops);
     printf("DOTPROD_AI_MT=%.4f\n",     ai);
     printf("DOTPROD_GFLOPS_MT=%.4f\n", gflops);
     printf("MT_THREADS=%u\n", nthreads);

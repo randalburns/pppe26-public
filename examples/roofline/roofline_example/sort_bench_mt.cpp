@@ -94,7 +94,7 @@ int main() {
     printf("  Sorted:      %s\n",             sorted ? "yes" : "NO -- BUG");
     printf("  Comparisons: %lld\n",           (long long)cmp_count);
     printf("  Arith. Int.: %.4f FLOP/byte\n", ai);
-    printf("  Performance: %.4f GFLOPS/s\n",  gflops);
+    printf("  Performance: %.4f GFLOP/s\n",  gflops);
     printf("SORT_AI_MT=%.4f\n",     ai);
     printf("SORT_GFLOPS_MT=%.4f\n", gflops);
     printf("MT_THREADS=%u\n", nthreads);

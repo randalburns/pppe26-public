@@ -69,7 +69,7 @@ int main() {
     printf("stencil (MT)  %dx%dx%d, %u threads (best of %d)\n", NX, NY, NZ, nthreads, NTIMES);
     printf("  Time:        %.3f ms\n",        best_t * 1000.0);
     printf("  Arith. Int.: %.4f FLOP/byte\n", ai);
-    printf("  Performance: %.4f GFLOPS/s\n",  gflops);
+    printf("  Performance: %.4f GFLOP/s\n",  gflops);
     printf("STENCIL_AI_MT=%.4f\n",     ai);
     printf("STENCIL_GFLOPS_MT=%.4f\n", gflops);
     printf("MT_THREADS=%u\n", nthreads);

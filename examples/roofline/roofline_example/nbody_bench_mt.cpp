@@ -84,7 +84,7 @@ int main() {
     printf("nbody (MT)  N=%d particles, %u threads (best of %d)\n", N, nthreads, NTIMES);
     printf("  Time:        %.3f ms\n",        best_t * 1000.0);
     printf("  Arith. Int.: %.4f FLOP/byte\n", ai);
-    printf("  Performance: %.4f GFLOPS/s\n",  gflops);
+    printf("  Performance: %.4f GFLOP/s\n",  gflops);
     printf("NBODY_AI_MT=%.4f\n",     ai);
     printf("NBODY_GFLOPS_MT=%.4f\n", gflops);
     printf("MT_THREADS=%u\n", nthreads);

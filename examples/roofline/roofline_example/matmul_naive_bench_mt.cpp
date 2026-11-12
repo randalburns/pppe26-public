@@ -196,7 +196,7 @@ int main() {
         std::vector<float> C((size_t)N * N, 0.0f);
         double t = time_variant_mt(v.fn, nthreads, A.data(), B.data(), C.data(), N);
         double gflops = flops / t / 1e9;
-        printf("  %-10s %8.3f ms   %8.2f GFLOPS/s\n", v.name, t * 1000.0, gflops);
+        printf("  %-10s %8.3f ms   %8.2f GFLOP/s\n", v.name, t * 1000.0, gflops);
         printf("%s_GFLOPS=%.4f\n", v.tag, gflops);
         sink(C[0]);
     }

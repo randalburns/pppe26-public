@@ -9,40 +9,27 @@ product, a sparse matvec) are memory-bound no matter how fast the ALUs are;
 high-intensity kernels (a blocked matmul) are compute-bound no matter how
 much bandwidth is available.
 
-This directory has two parts, meant to be read in order.
+The lecture is [16.roofline.md](../../course_materials/16.roofline.md),
+which presents this directory's results.
 
-## 1 · `roofline_lecture/` — the concept, first
+## 1 · The concept, first
 
-[`roofline_overview.ipynb`](roofline_lecture/roofline_overview.ipynb) is the
-roofline lecture from a data-science course, covering the model itself
-before any of this directory's own measurements:
+The model itself — operational intensity, the ridge point, what multicore
+does to it, and where GPUs and TPUs sit — is Part 1 of
+[16.roofline.md](../../course_materials/16.roofline.md). Its numbers
+(16 GB/s, 16 GFLOP/s) are illustrative, not measured — that's what
+`roofline_example/` is for.
 
-- why operational intensity — not clock speed or core count — determines
-  which ceiling a kernel hits
-- the **ridge point**, where the bandwidth slope meets the compute ceiling,
-  and why kernels to its left can never reach peak FLOPS/s no matter how
-  optimized
-- what multicore does to the ridge point (it moves right — more cores raise
-  the compute ceiling but not the memory ceiling, so more kernels become
-  memory-bound over time)
-- using the model to *direct* optimization (pipelining, SIMD, unrolling,
-  data movement) rather than guessing
-- where GPUs and TPUs sit on the same axis — orders of magnitude further
-  right than CPU kernels, which is the whole reason they exist
-
-The plotting cells are R (`ggplot2`), from the original course notebook —
-their output is pre-rendered in the notebook, so it reads fine with no setup
-at all. To actually run those cells, the notebook's kernelspec is set to the
-`ir` kernel; install R and register it with:
+[roofline_lecture/roofline_overview.ipynb](roofline_lecture/roofline_overview.ipynb) is the original notebook
+Part 1 was lifted from, kept for reference. Its plotting cells are R
+(`ggplot2`) with the output saved, so it reads with no setup; to run them,
+install R and the `ir` kernel:
 
 ```bash
 brew install r
 Rscript -e 'install.packages(c("ggplot2", "repr", "IRkernel"), repos="https://cloud.r-project.org")'
 Rscript -e 'IRkernel::installspec(name = "ir", displayname = "R")'
 ```
-
-The numbers in the lecture (16 GB/s, 16 GFLOPS/s) are illustrative, not
-measured — that's what `roofline_example/` is for.
 
 ## 2 · `roofline_example/` — the same model, measured on real hardware
 
@@ -73,7 +60,7 @@ memory-bandwidth slope (from `stream.cpp`), and a star for each kernel below.
 Three things worth knowing before reading the source, all found by measuring
 rather than assuming, and documented in the relevant file's header comment:
 
-- **`dot_bench.cpp`** originally reported `inf` GFLOPS/s. The compiler proved
+- **`dot_bench.cpp`** originally reported `inf` GFLOP/s. The compiler proved
   the timed function was pure and CSE'd away 4 of its 5 timed calls. Fixed
   with an `asm volatile` barrier — the same trick used throughout this suite
   to keep the compiler from fusing or vectorizing things it shouldn't.
@@ -87,7 +74,7 @@ rather than assuming, and documented in the relevant file's header comment:
   plain multiply-add, which turned out to be a tile-shape problem (no B
   reuse across columns), not a scheduling or latency issue — confirmed by
   testing a hand-scheduled assembly version that changed nothing. Widening
-  to a proper 4×4 tile got SIMD+FMA to over 90% of its ceiling.
+  to a proper 4×4 tile got SIMD+FMA to about 90% of its ceiling.
 
 `roofline.py` does the plotting — log-log ceilings plus each kernel as a
 labeled point, with cluster-aware label placement so points that land close
@@ -118,40 +105,43 @@ Measured on this machine, single-thread vs. 10-thread:
 
 | Kernel | AI | 1 thread | 10 threads | Scaling |
 |---|---:|---:|---:|---:|
-| Peak bandwidth (`stream_mt`) | — | 117.4 GB/s | 125.1 GB/s | **1.07x** |
-| SIMD FMA ceiling (`peak_flops_mt`) | — | 135.2 | 854.5 GFLOPS/s | **6.32x** |
-| saxpy 32M | 0.167 | 20.5 | 22.7 | 1.11x |
-| `std::sort` 16M | 6.66 | 1.6 | 2.1 | 1.35x |
-| dot product 32M | 0.25 | 20.8 | 32.8 | 1.58x |
-| 7-pt stencil 256³ | 0.25 | 34.4 | 73.3 | 2.13x |
-| SpMV 4M×7 | 0.167 | 2.6 | 6.0 | 2.27x |
-| naive mm (4 variants) | 85.3 | 17–122 | 60–428 | 3.5–4.5x |
-| N-body 4096 | 5632 | 65.1 | 367.9 | 5.65x |
+| Peak bandwidth (`stream_mt`) | — | 116.1 GB/s | 125.6 GB/s | **1.08x** |
+| SIMD FMA ceiling (`peak_flops_mt`) | — | 135.5 | 889.5 GFLOP/s | **6.57x** |
+| saxpy 32M | 0.167 | 20.3 | 21.4 | 1.05x |
+| `std::sort` 16M | 6.66 | 1.6 | 2.1 | 1.36x |
+| dot product 32M | 0.25 | 20.9 | 32.5 | 1.56x |
+| 7-pt stencil 256³ | 0.25 | 32.6 | 72.7 | 2.23x |
+| SpMV 4M×7 | 0.167 | 2.6 | 4.9 | 1.91x |
+| naive mm (4 variants) | 85.3 | 17–120 | 74–404 | 3.4–4.4x |
+| N-body 4096 | 5632 | 58.2 | 251.2 | 4.32x |
 
 Confirms the lecture's claim, with the nuance a naive "memory-bound = no
 multicore benefit" summary would miss:
 
 - **Bandwidth is already saturated by roughly one core on this chip.**
-  `stream_mt`'s aggregate bandwidth (125 GB/s) is barely above `stream`'s
-  single-core number (117 GB/s) — this Apple Silicon core can already drive
+  `stream_mt`'s aggregate bandwidth (126 GB/s) is barely above `stream`'s
+  single-core number (116 GB/s) — this Apple Silicon core can already drive
   close to the full memory controller alone, so saxpy and dot product, which
   are purely sequential streams, gain almost nothing from more cores.
 - **SpMV and the stencil do better than pure streaming, for different
   reasons.** SpMV's irregular `x[col_idx[k]]` gathers are limited by a
   single core's memory-level parallelism (how many outstanding loads it can
   keep in flight), not raw bandwidth — more cores issuing independent
-  gathers recovers some of that gap (2.27x) even though the kernel is still
-  memory-bound. The stencil's extra scaling (2.13x) comes from the same
+  gathers recovers some of that gap (1.91x) even though the kernel is still
+  memory-bound. The stencil's extra scaling (2.23x) comes from the same
   cache-line reuse that already put it above its naive bandwidth line
   single-threaded.
-- **Compute-bound kernels scale 3.5–6x, not 10x**, because 6 of the 10
+- **Compute-bound kernels scale 3.4–4.4x, not 10x**, because 6 of the 10
   cores are E-cores with a fraction of a P-core's throughput each — the
-  aggregate ceiling is real, but it isn't `10 x single-core`.
+  aggregate ceiling is real, but it isn't `10 x single-core` (the peak
+  itself is 6.57x). The kernels fall short even of that: N-body reaches
+  4.32x and SIMD+FMA matmul 3.4x, 45% of its multicore ceiling against
+  89% on one core.
 - **`sort_bench_mt.cpp` needed a structurally different algorithm**, not
   just a partitioned loop: `std::sort` has no thread-count argument, so it
   chunk-sorts per thread and merges the sorted chunks with a sequential
   pairwise `std::inplace_merge` reduction. That serial merge tail is why
-  sort only reaches 1.35x — a real example of Amdahl's law, not a tuning
+  sort only reaches 1.36x — a real example of Amdahl's law, not a tuning
   gap. (It also needed its own comparison-counting instrumentation run,
   since a different algorithm does a different number of comparisons than
   the single-thread version — its AI/GFLOPS figures aren't just the
@@ -167,12 +157,12 @@ verification from the single-thread files needed repeating.
 Read the lecture for the *shape* of the argument — why intensity determines
 the bound, why that bound moved as hardware changed, and what multicore does
 to the ridge point. Then run the single-thread example and watch that shape
-show up as measured GFLOPS/s and GB/s on the machine in front of you,
+show up as measured GFLOP/s and GB/s on the machine in front of you,
 including the places real code doesn't behave like the idealized model —
 cache reuse the byte-counting AI formula misses, access patterns that miss
 bandwidth by more than intensity predicts, and a compute unit (AMX) the
 model was never built to describe at all. Then run the multicore version and
 watch the lecture's multicore claim — compute ceiling scales, bandwidth
 ceiling doesn't, so the ridge point moves right — play out as a measured
-6.3x compute ceiling against a 1.07x bandwidth one, on real kernels instead
+6.6x compute ceiling against a 1.08x bandwidth one, on real kernels instead
 of a toy example.

@@ -132,6 +132,7 @@ def plot_roofline(peak_bw: float,
                   scalar_nofma:float | None = None,
                   points: list | None = None,
                   title: str = "",
+                  machine: str = "",
                   show: bool = False,
                   outfile: str = "roofline.png") -> None:
     """points: list of (label, ai, gflops) tuples to overlay on the plot."""
@@ -141,10 +142,10 @@ def plot_roofline(peak_bw: float,
 
     # Draw bottom-to-top so higher lines sit on top visually
     ceilings = [
-        ("scalar_nofma", scalar_nofma, f"Scalar mul-only  ({scalar_nofma:.1f} GFLOPS/s)" if scalar_nofma else None),
-        ("scalar_fma",   scalar_fma,   f"Scalar FMA       ({scalar_fma:.1f} GFLOPS/s)"   if scalar_fma   else None),
-        ("simd_nofma",   simd_nofma,   f"SIMD mul-only    ({simd_nofma:.1f} GFLOPS/s)"   if simd_nofma   else None),
-        ("simd_fma",     simd_fma,     f"SIMD FMA         ({simd_fma:.1f} GFLOPS/s)"),
+        ("scalar_nofma", scalar_nofma, f"Scalar mul-only  ({scalar_nofma:.1f} GFLOP/s)" if scalar_nofma else None),
+        ("scalar_fma",   scalar_fma,   f"Scalar FMA       ({scalar_fma:.1f} GFLOP/s)"   if scalar_fma   else None),
+        ("simd_nofma",   simd_nofma,   f"SIMD mul-only    ({simd_nofma:.1f} GFLOP/s)"   if simd_nofma   else None),
+        ("simd_fma",     simd_fma,     f"SIMD FMA         ({simd_fma:.1f} GFLOP/s)"),
     ]
 
     for key, peak, label in ceilings:
@@ -162,8 +163,8 @@ def plot_roofline(peak_bw: float,
     label_ys = _place_point_labels(ax, points)
 
     ax.set_xlabel("Arithmetic Intensity  (FLOP / byte)", fontsize=12)
-    ax.set_ylabel("Performance  (GFLOPS/s)", fontsize=12)
-    ax.set_title(title or "Roofline Model — Apple M5 (single thread, FP32)",
+    ax.set_ylabel("Performance  (GFLOP/s)", fontsize=12)
+    ax.set_title(title or f"Roofline Model{' — ' + machine if machine else ''} (single thread, FP32)",
                  fontsize=13, fontweight="bold")
     ax.legend(loc="lower right", fontsize=9)
     ax.grid(True, which="both", linestyle=":", linewidth=0.5, alpha=0.5)
@@ -199,6 +200,9 @@ if __name__ == "__main__":
                         metavar=("LABEL", "AI", "GFLOPS"),
                         help="overlay a kernel point; may be repeated")
     parser.add_argument("--title", default="")
+    parser.add_argument("--machine", default="",
+                        help="CPU name for the default title (the Makefile "
+                             "passes sysctl's machdep.cpu.brand_string)")
     parser.add_argument("--show", action="store_true",
                         help="open an interactive window (blocks until closed); "
                              "off by default so this can run headless")
@@ -207,4 +211,4 @@ if __name__ == "__main__":
     pts = [(lbl, float(ai), float(gf)) for lbl, ai, gf in (ns.point or [])]
     plot_roofline(ns.peak_bw, ns.simd_fma, ns.simd_nofma,
                   ns.scalar_fma, ns.scalar_nofma,
-                  points=pts, title=ns.title, show=ns.show)
+                  points=pts, title=ns.title, machine=ns.machine, show=ns.show)

@@ -68,7 +68,7 @@ int main() {
            NROWS >> 20, NNZ_PER_ROW, nthreads, NTIMES);
     printf("  Time:        %.3f ms\n",        best_t * 1000.0);
     printf("  Arith. Int.: %.4f FLOP/byte\n", ai);
-    printf("  Performance: %.4f GFLOPS/s\n",  gflops);
+    printf("  Performance: %.4f GFLOP/s\n",  gflops);
     printf("SPMV_AI_MT=%.4f\n",     ai);
     printf("SPMV_GFLOPS_MT=%.4f\n", gflops);
     printf("MT_THREADS=%u\n", nthreads);

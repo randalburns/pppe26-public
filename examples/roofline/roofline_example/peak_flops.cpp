@@ -161,10 +161,10 @@ int main() {
     double scalar_fma_gf  = (double)ITERS * 30 * 1 * 2 / best_scalar_t       / 1e9; //  60 FLOP/iter
     double scalar_nofma_gf= (double)ITERS * 30 * 1 * 1 / best_scalar_nofma_t / 1e9; //  30 FLOP/iter
 
-    printf("FP32 SIMD FMA   (NEON x4): %7.2f GFLOPS/s\n", simd_fma_gf);
-    printf("FP32 SIMD no-FMA         : %7.2f GFLOPS/s\n", simd_nofma_gf);
-    printf("FP32 scalar FMA          : %7.2f GFLOPS/s\n", scalar_fma_gf);
-    printf("FP32 scalar no-FMA       : %7.2f GFLOPS/s\n", scalar_nofma_gf);
+    printf("FP32 SIMD FMA   (NEON x4): %7.2f GFLOP/s\n", simd_fma_gf);
+    printf("FP32 SIMD no-FMA         : %7.2f GFLOP/s\n", simd_nofma_gf);
+    printf("FP32 scalar FMA          : %7.2f GFLOP/s\n", scalar_fma_gf);
+    printf("FP32 scalar no-FMA       : %7.2f GFLOP/s\n", scalar_nofma_gf);
     printf("PEAK_GFLOPS_SIMD_FMA=%.2f\n",    simd_fma_gf);
     printf("PEAK_GFLOPS_SIMD_NOFMA=%.2f\n",  simd_nofma_gf);
     printf("PEAK_GFLOPS_SCALAR_FMA=%.2f\n",  scalar_fma_gf);

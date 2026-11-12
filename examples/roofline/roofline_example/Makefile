@@ -3,6 +3,14 @@ CXXFLAGS = -std=c++17 -O3 -march=native
 
 OPENBLAS = /opt/homebrew/opt/openblas
 
+# Machine description for the plot titles, read from the host rather than
+# hardcoded. CORES is the P/E split on heterogeneous Apple Silicon (empty
+# where sysctl has no second perf level).
+MACHINE := $(shell sysctl -n machdep.cpu.brand_string 2>/dev/null || uname -m)
+CORES   := $(shell p=$$(sysctl -n hw.perflevel0.physicalcpu 2>/dev/null); \
+                   e=$$(sysctl -n hw.perflevel1.physicalcpu 2>/dev/null); \
+                   [ -n "$$e" ] && echo "$${p}P+$${e}E")
+
 all: stream peak_flops sort_bench dot_bench saxpy_bench stencil_bench spmv_bench nbody_bench matmul_naive_bench matmul_bench openblas_bench
 
 all_mt: stream_mt peak_flops_mt sort_bench_mt dot_bench_mt saxpy_bench_mt stencil_bench_mt spmv_bench_mt nbody_bench_mt matmul_naive_bench_mt
@@ -125,7 +133,7 @@ plot: all
 	 MM_SCF=$$(grep   "^MATMUL_SCALAR_FMA_GFLOPS="  /tmp/matmul_naive_out.txt | cut -d= -f2); \
 	 MM_SI=$$(grep    "^MATMUL_SIMD_GFLOPS="        /tmp/matmul_naive_out.txt | cut -d= -f2); \
 	 MM_SIF=$$(grep   "^MATMUL_SIMD_FMA_GFLOPS="    /tmp/matmul_naive_out.txt | cut -d= -f2); \
-	 python3 roofline.py "$${BW}" "$${GF_SFMA}" "$${GF_SMUL}" "$${GF_SCFMA}" "$${GF_SCMUL}" \
+	 python3 roofline.py "$${BW}" "$${GF_SFMA}" "$${GF_SMUL}" "$${GF_SCFMA}" "$${GF_SCMUL}" --machine "$(MACHINE)" \
 	     --point "std::sort 16M"      "$${SORT_AI}"    "$${SORT_GF}" \
 	     --point "dot product 32M"    "$${DOT_AI}"     "$${DOT_GF}" \
 	     --point "saxpy 32M"          "$${SAXPY_AI}"   "$${SAXPY_GF}" \
@@ -194,7 +202,7 @@ plot_mt: all_mt
 	 MM_SCF=$$(grep   "^MATMUL_SCALAR_FMA_MT_GFLOPS="  /tmp/matmul_naive_mt_out.txt | cut -d= -f2); \
 	 MM_SI=$$(grep    "^MATMUL_SIMD_MT_GFLOPS="        /tmp/matmul_naive_mt_out.txt | cut -d= -f2); \
 	 MM_SIF=$$(grep   "^MATMUL_SIMD_FMA_MT_GFLOPS="    /tmp/matmul_naive_mt_out.txt | cut -d= -f2); \
-	 python3 roofline_multicore.py "$${BW}" "$${GF_SFMA}" "$${GF_SMUL}" "$${GF_SCFMA}" "$${GF_SCMUL}" --threads "$${THREADS}" \
+	 python3 roofline_multicore.py "$${BW}" "$${GF_SFMA}" "$${GF_SMUL}" "$${GF_SCFMA}" "$${GF_SCMUL}" --threads "$${THREADS}" --machine "$(MACHINE)" --cores "$(CORES)" \
 	     --point "std::sort 16M"      "$${SORT_AI}"    "$${SORT_GF}" \
 	     --point "dot product 32M"    "$${DOT_AI}"     "$${DOT_GF}" \
 	     --point "saxpy 32M"          "$${SAXPY_AI}"   "$${SAXPY_GF}" \

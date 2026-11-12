@@ -50,7 +50,7 @@ int main() {
     printf("saxpy  N=%zuM floats (best of %d)\n", N >> 20, NTIMES);
     printf("  Time:        %.3f ms\n",        best_t * 1000.0);
     printf("  Arith. Int.: %.4f FLOP/byte\n", ai);
-    printf("  Performance: %.4f GFLOPS/s\n",  gflops);
+    printf("  Performance: %.4f GFLOP/s\n",  gflops);
     printf("SAXPY_AI=%.4f\n",     ai);
     printf("SAXPY_GFLOPS=%.4f\n", gflops);
     return 0;
