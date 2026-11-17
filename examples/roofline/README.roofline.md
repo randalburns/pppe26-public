@@ -105,43 +105,48 @@ Measured on this machine, single-thread vs. 10-thread:
 
 | Kernel | AI | 1 thread | 10 threads | Scaling |
 |---|---:|---:|---:|---:|
-| Peak bandwidth (`stream_mt`) | — | 116.1 GB/s | 125.6 GB/s | **1.08x** |
-| SIMD FMA ceiling (`peak_flops_mt`) | — | 135.5 | 889.5 GFLOP/s | **6.57x** |
-| saxpy 32M | 0.167 | 20.3 | 21.4 | 1.05x |
-| `std::sort` 16M | 6.66 | 1.6 | 2.1 | 1.36x |
-| dot product 32M | 0.25 | 20.9 | 32.5 | 1.56x |
-| 7-pt stencil 256³ | 0.25 | 32.6 | 72.7 | 2.23x |
-| SpMV 4M×7 | 0.167 | 2.6 | 4.9 | 1.91x |
-| naive mm (4 variants) | 85.3 | 17–120 | 74–404 | 3.4–4.4x |
-| N-body 4096 | 5632 | 58.2 | 251.2 | 4.32x |
+| Peak bandwidth (`stream_mt`) | — | 116.7 GB/s | 123.6 GB/s | **1.06x** |
+| SIMD FMA ceiling (`peak_flops_mt`) | — | 134.6 | 857.4 GFLOP/s | **6.37x** |
+| saxpy 32M | 0.167 | 20.2 | 22.6 | 1.12x |
+| `std::sort` 16M | 6.66 | 1.5 | 2.1 | 1.35x |
+| dot product 32M | 0.25 | 20.8 | 32.4 | 1.56x |
+| 7-pt stencil 256³ | 0.25 | 37.2 | 81.2 | 2.18x |
+| SpMV 4M×7 | 0.167 | 2.3 | 5.8 | 2.56x |
+| naive mm (4 variants) | 85.3 | 17–121 | 75–441 | 3.6–4.7x |
+| N-body 4096 | 5632 | 89.1 | 287.9 | 3.23x |
+
+N-body is the noisy one: each timed run lasts about 4 ms, and three runs of
+the suite have measured 58, 65 and 89 GFLOP/s single-threaded. Run on a quiet
+machine (`top -o cpu` first): a process holding the P-cores pushes everything
+onto E-cores.
 
 Confirms the lecture's claim, with the nuance a naive "memory-bound = no
 multicore benefit" summary would miss:
 
 - **Bandwidth is already saturated by roughly one core on this chip.**
-  `stream_mt`'s aggregate bandwidth (126 GB/s) is barely above `stream`'s
-  single-core number (116 GB/s) — this Apple Silicon core can already drive
+  `stream_mt`'s aggregate bandwidth (124 GB/s) is barely above `stream`'s
+  single-core number (117 GB/s) — this Apple Silicon core can already drive
   close to the full memory controller alone, so saxpy and dot product, which
   are purely sequential streams, gain almost nothing from more cores.
 - **SpMV and the stencil do better than pure streaming, for different
   reasons.** SpMV's irregular `x[col_idx[k]]` gathers are limited by a
   single core's memory-level parallelism (how many outstanding loads it can
   keep in flight), not raw bandwidth — more cores issuing independent
-  gathers recovers some of that gap (1.91x) even though the kernel is still
-  memory-bound. The stencil's extra scaling (2.23x) comes from the same
+  gathers recovers some of that gap (2.56x) even though the kernel is still
+  memory-bound. The stencil's extra scaling (2.18x) comes from the same
   cache-line reuse that already put it above its naive bandwidth line
   single-threaded.
-- **Compute-bound kernels scale 3.4–4.4x, not 10x**, because 6 of the 10
+- **Compute-bound kernels scale 3.2–4.7x, not 10x**, because 6 of the 10
   cores are E-cores with a fraction of a P-core's throughput each — the
   aggregate ceiling is real, but it isn't `10 x single-core` (the peak
-  itself is 6.57x). The kernels fall short even of that: N-body reaches
-  4.32x and SIMD+FMA matmul 3.4x, 45% of its multicore ceiling against
-  89% on one core.
+  itself is 6.37x). The kernels fall short even of that: N-body reaches
+  3.23x and SIMD+FMA matmul 3.64x, 51% of its multicore ceiling against
+  90% on one core.
 - **`sort_bench_mt.cpp` needed a structurally different algorithm**, not
   just a partitioned loop: `std::sort` has no thread-count argument, so it
   chunk-sorts per thread and merges the sorted chunks with a sequential
   pairwise `std::inplace_merge` reduction. That serial merge tail is why
-  sort only reaches 1.36x — a real example of Amdahl's law, not a tuning
+  sort only reaches 1.35x — a real example of Amdahl's law, not a tuning
   gap. (It also needed its own comparison-counting instrumentation run,
   since a different algorithm does a different number of comparisons than
   the single-thread version — its AI/GFLOPS figures aren't just the
@@ -164,5 +169,5 @@ bandwidth by more than intensity predicts, and a compute unit (AMX) the
 model was never built to describe at all. Then run the multicore version and
 watch the lecture's multicore claim — compute ceiling scales, bandwidth
 ceiling doesn't, so the ridge point moves right — play out as a measured
-6.6x compute ceiling against a 1.08x bandwidth one, on real kernels instead
+6.4x compute ceiling against a 1.06x bandwidth one, on real kernels instead
 of a toy example.

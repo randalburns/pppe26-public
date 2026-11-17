@@ -133,6 +133,7 @@ def plot_roofline(peak_bw: float,
                   points: list | None = None,
                   title: str = "",
                   machine: str = "",
+                  legend_loc: str = "lower right",
                   show: bool = False,
                   outfile: str = "roofline.png") -> None:
     """points: list of (label, ai, gflops) tuples to overlay on the plot."""
@@ -166,7 +167,7 @@ def plot_roofline(peak_bw: float,
     ax.set_ylabel("Performance  (GFLOP/s)", fontsize=12)
     ax.set_title(title or f"Roofline Model{' — ' + machine if machine else ''} (single thread, FP32)",
                  fontsize=13, fontweight="bold")
-    ax.legend(loc="lower right", fontsize=9)
+    ax.legend(loc=legend_loc, fontsize=9)
     ax.grid(True, which="both", linestyle=":", linewidth=0.5, alpha=0.5)
 
     # Labels stacked above/below everything else (e.g. a cluster's top entry

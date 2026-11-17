@@ -174,3 +174,9 @@ not_presented/strong_scaling/scaling_bench
 # JupyterLab LSP scratch copies
 .virtual_documents/
 **/.virtual_documents/
+
+# matmul build artifacts (mm_roofline_*.png plots ARE tracked)
+examples/matmul/mm_O0
+examples/matmul/mm_O3
+examples/matmul/mm_fast
+examples/matmul/mm_mt

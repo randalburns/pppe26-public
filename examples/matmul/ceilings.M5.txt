@@ -1,0 +1,16 @@
+Kernel         GB/s
+-------- ----------
+Copy         110.55
+Scale        104.79
+Add          112.00
+Triad        110.93
+
+PEAK_BANDWIDTH=112.00
+FP32 SIMD FMA   (NEON x4):  130.02 GFLOP/s
+FP32 SIMD no-FMA         :   68.25 GFLOP/s
+FP32 scalar FMA          :   28.48 GFLOP/s
+FP32 scalar no-FMA       :   17.23 GFLOP/s
+PEAK_GFLOPS_SIMD_FMA=130.02
+PEAK_GFLOPS_SIMD_NOFMA=68.25
+PEAK_GFLOPS_SCALAR_FMA=28.48
+PEAK_GFLOPS_SCALAR_NOFMA=17.23

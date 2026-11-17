@@ -54,6 +54,7 @@ and (where it matters) measured numbers.
 | [sharing/](examples/sharing/README.sharing.md) | what sharing a cache line costs: true sharing, false sharing, and where the threads run |
 | [prefetch.example/](examples/prefetch.example/) | why software prefetching mostly doesn't help |
 | [roofline/](examples/roofline/) | arithmetic intensity as the guide to what is worth parallelizing |
+| [matmul/](examples/matmul/README.matmul.md) | matrix multiply step by step: flags, loop order, tiling, on the roofline |
 
 **Parallelism**
 
