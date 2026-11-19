@@ -1,0 +1,388 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Why Split the Output</title>
+<style>
+/* Layout: one reading column; each idea gets one figure at full width. The four colours are the four threads, everywhere. */
+:root {
+  --bg: #f4f6f6;
+  --surface: #ffffff;
+  --fg: #16201f;
+  --muted: #586664;
+  --rule: #d6dedd;
+  --t1: #b06a12;       /* thread 1 */
+  --t2: #0f7b6c;       /* thread 2 */
+  --t3: #2d5bb8;       /* thread 3 */
+  --t4: #8a4fa8;       /* thread 4 */
+  --shared: #c9d2d0;   /* data every thread reads */
+  --grey: #8a9694;
+  --good: #0f7b6c;
+  --bad: #b3402e;
+  --font-display: "Instrument Sans", "Helvetica Neue", Arial, sans-serif;
+  --font-body: "Instrument Sans", "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1514; --surface: #161e1d; --fg: #e2ebea; --muted: #97a7a4; --rule: #27322f;
+    --t1: #e2a551; --t2: #4fc2ae; --t3: #7fa4f0; --t4: #c08fdc; --shared: #36423f; --grey: #78857f;
+    --good: #4fc2ae; --bad: #ef8573;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1514; --surface: #161e1d; --fg: #e2ebea; --muted: #97a7a4; --rule: #27322f;
+  --t1: #e2a551; --t2: #4fc2ae; --t3: #7fa4f0; --t4: #c08fdc; --shared: #36423f; --grey: #78857f;
+  --good: #4fc2ae; --bad: #ef8573;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg);
+  font: 16px/1.6 var(--font-body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 40px 64px;
+}
+main { max-width: 860px; margin: 0 auto; display: grid; gap: 44px; }
+.prose { max-width: 66ch; display: grid; gap: 12px; }
+h1, h2 { font-family: var(--font-display); text-wrap: balance; line-height: 1.15; margin: 0; }
+h1 { font-size: clamp(2rem, 5vw, 2.8rem); font-weight: 700; letter-spacing: -0.01em; }
+h2 { font-size: 1.45rem; font-weight: 600; }
+p { margin: 0; }
+section { display: grid; gap: 16px; }
+.eyebrow { font: 600 0.75rem/1 var(--font-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.lede { font-size: 1.15rem; color: var(--muted); max-width: 62ch; }
+code, .mono { font-family: var(--font-mono); font-size: 0.86em; }
+figure { margin: 0; display: grid; gap: 10px; }
+figcaption { color: var(--muted); font-size: 0.9rem; max-width: 72ch; }
+.panel { background: var(--surface); border: 1px solid var(--rule); border-radius: 8px; padding: 16px; overflow-x: auto; }
+svg { display: block; width: 100%; height: auto; max-width: 100%; }
+svg text { font-family: var(--font-mono); fill: var(--muted); font-size: 12px; }
+svg .strong { fill: var(--fg); font-weight: 600; }
+svg .good { fill: var(--good); font-weight: 600; } svg .bad { fill: var(--bad); font-weight: 600; }
+.box { fill: var(--surface); stroke: var(--grey); stroke-width: 1.2; }
+.outline { fill: none; stroke: var(--grey); stroke-width: 1.2; }
+.f1 { fill: var(--t1); } .f2 { fill: var(--t2); } .f3 { fill: var(--t3); } .f4 { fill: var(--t4); }
+.fs { fill: var(--shared); }
+.sep { stroke: var(--surface); stroke-width: 1.5; fill: none; }
+.gl { stroke: var(--surface); stroke-width: 1; fill: none; }
+.op { fill: var(--fg); font-size: 20px; font-family: var(--font-display); }
+.arrow { stroke: var(--fg); stroke-width: 1.5; fill: none; }
+.head { fill: var(--fg); }
+.legend { display: flex; flex-wrap: wrap; gap: 16px; font-size: 0.85rem; color: var(--muted); }
+.legend i { display: inline-block; width: 12px; height: 12px; border-radius: 2px; vertical-align: -1px; margin-right: 6px; }
+.formula { font-family: var(--font-mono); font-size: 1rem; background: var(--surface); border: 1px solid var(--rule); border-radius: 8px; padding: 12px 16px; overflow-x: auto; }
+.bars { display: grid; gap: 18px; }
+.bar-group { display: grid; gap: 8px; }
+.bar-group h3 { margin: 0; font: 600 0.8rem/1 var(--font-mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.bar-row { display: grid; grid-template-columns: minmax(10em, 18em) 1fr 3.6em; align-items: center; gap: 12px; font-size: 0.9rem; }
+.bar-row .name { min-width: 0; }
+.bar-row .name small { display: block; color: var(--muted); font-size: 0.78rem; }
+.track { height: 18px; background: var(--bg); border-radius: 3px; }
+.fill { height: 100%; border-radius: 3px; min-width: 2px; background: var(--grey); }
+.fill.c { background: var(--good); }
+.bar-row .v { font-family: var(--font-mono); font-variant-numeric: tabular-nums; text-align: right; font-size: 0.86rem; }
+.table-wrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 0.9rem; }
+th, td { padding: 9px 10px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--rule); }
+thead th { font-size: 0.78rem; letter-spacing: 0.04em; color: var(--muted); font-weight: 600; }
+tbody th { font-weight: 600; color: var(--muted); font-size: 0.84rem; }
+td.yes { color: var(--good); font-weight: 600; } td.no { color: var(--bad); font-weight: 600; }
+ul.plain { margin: 0; padding-left: 1.2em; display: grid; gap: 8px; max-width: 66ch; }
+.callout { border-left: 3px solid var(--good); padding: 4px 0 4px 14px; max-width: 66ch; }
+.foot { color: var(--muted); font-size: 0.85rem; border-top: 1px solid var(--rule); padding-top: 16px; max-width: 72ch; }
+@media (max-width: 560px) {
+  .bar-row { grid-template-columns: 1fr 3.6em; }
+  .bar-row .track { grid-column: 1 / -1; grid-row: 2; }
+}
+</style>
+</head>
+<body>
+<main>
+  <header style="display:grid; gap:14px">
+    <div class="eyebrow">Lecture 17, Step 6 · matrix multiply on several threads</div>
+    <h1>Why split the output C, and not the inputs A and B</h1>
+    <p class="lede">There are two ways to share a matrix multiply among threads. One gives each thread its own part of the answer. The other gives each thread its own part of the inputs. The first needs no coordination at all. The second makes every thread write to every part of the answer.</p>
+  </header>
+
+  <section>
+    <h2>Two places to cut</h2>
+    <div class="prose">
+      <p>Every number in C is a sum over k:</p>
+    </div>
+    <div class="formula">C[i][j] = A[i][0]·B[0][j] + A[i][1]·B[1][j] + … + A[i][n−1]·B[n−1][j]</div>
+    <div class="prose">
+      <p>There are n² of these sums, one for each (i, j), and each has n terms. To share the work we can hand out <b>the sums</b>, or hand out <b>the terms</b>.</p>
+    </div>
+    <ul class="plain">
+      <li><b>Split the output.</b> Each thread gets some of the (i, j): a band of rows of C. It computes each of its sums from the first term to the last.</li>
+      <li><b>Split the inputs.</b> Each thread gets a range of k: a band of columns of A and the matching rows of B. It computes a few terms of <em>every</em> sum.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Split the output: each thread owns part of C</h2>
+    <figure>
+      <div class="panel">
+        <svg viewBox="0 0 700 320" role="img" aria-labelledby="f1">
+          <title id="f1">Splitting C by rows: each thread writes its own band of C, reads its own rows of A and all of B</title>
+          <text x="335" y="16" text-anchor="middle" class="strong">B: every thread reads all of it</text>
+          <rect class="fs" x="270" y="24" width="130" height="130"/><rect class="outline" x="270" y="24" width="130" height="130"/>
+          <text x="110" y="240" text-anchor="end" class="strong">A</text>
+          <rect class="f1" x="120" y="170" width="130" height="32.5"/><rect class="f2" x="120" y="202.5" width="130" height="32.5"/><rect class="f3" x="120" y="235" width="130" height="32.5"/><rect class="f4" x="120" y="267.5" width="130" height="32.5"/>
+          <path class="sep" d="M120 202.5h130M120 235h130M120 267.5h130"/>
+          <text x="410" y="240" class="strong">C</text>
+          <rect class="f1" x="270" y="170" width="130" height="32.5"/><rect class="f2" x="270" y="202.5" width="130" height="32.5"/><rect class="f3" x="270" y="235" width="130" height="32.5"/><rect class="f4" x="270" y="267.5" width="130" height="32.5"/>
+          <path class="sep" d="M270 202.5h130M270 235h130M270 267.5h130"/>
+          <text x="185" y="316" text-anchor="middle">reads its own rows</text>
+          <text x="335" y="316" text-anchor="middle">writes its own rows</text>
+          <text x="450" y="70" class="strong">Reads</text>
+          <text x="450" y="88">its rows of A, and all of B</text>
+          <text x="450" y="128" class="strong">Writes</text>
+          <text x="450" y="146">only its own band of C</text>
+          <text x="450" y="186" class="good">Each number in C is written</text>
+          <text x="450" y="204" class="good">by exactly one thread</text>
+          <text x="450" y="244" class="strong">Shared between threads</text>
+          <text x="450" y="262">only B, and nobody writes B</text>
+        </svg>
+      </div>
+      <div class="legend">
+        <span><i style="background:var(--t1)"></i>thread 1</span><span><i style="background:var(--t2)"></i>thread 2</span><span><i style="background:var(--t3)"></i>thread 3</span><span><i style="background:var(--t4)"></i>thread 4</span>
+        <span><i style="background:var(--shared)"></i>read by all, written by none</span>
+      </div>
+      <figcaption>A is drawn to the left of C and B above it, so row i of A and column j of B line up with C[i][j].</figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <h2>Split the inputs: each thread owns part of k</h2>
+    <figure>
+      <div class="panel">
+        <svg viewBox="0 0 700 330" role="img" aria-labelledby="f2">
+          <title id="f2">Splitting k: each thread reads a band of columns of A and a band of rows of B, and produces a partial result covering all of C; the four partial results must be added</title>
+          <defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="head" d="M0 0l10 5l-10 5z"/></marker></defs>
+          <!-- A column bands -->
+          <text x="90" y="26" text-anchor="middle" class="strong">A: a band of columns each</text>
+          <rect class="f1" x="30" y="36" width="30" height="120"/><rect class="f2" x="60" y="36" width="30" height="120"/><rect class="f3" x="90" y="36" width="30" height="120"/><rect class="f4" x="120" y="36" width="30" height="120"/>
+          <path class="sep" d="M60 36v120M90 36v120M120 36v120"/>
+          <!-- B row bands -->
+          <text x="90" y="186" text-anchor="middle" class="strong">B: the matching rows</text>
+          <rect class="f1" x="30" y="196" width="120" height="30"/><rect class="f2" x="30" y="226" width="120" height="30"/><rect class="f3" x="30" y="256" width="120" height="30"/><rect class="f4" x="30" y="286" width="120" height="30"/>
+          <path class="sep" d="M30 226h120M30 256h120M30 286h120"/>
+          <path class="arrow" d="M165 176h60" marker-end="url(#ah)"/>
+          <!-- partial results -->
+          <text x="455" y="26" text-anchor="middle" class="strong">each thread's result covers all of C</text>
+          <rect class="f1" x="245" y="40" width="80" height="80" opacity="0.85"/>
+          <text x="340" y="86" class="op" text-anchor="middle">+</text>
+          <rect class="f2" x="355" y="40" width="80" height="80" opacity="0.85"/>
+          <text x="450" y="86" class="op" text-anchor="middle">+</text>
+          <rect class="f3" x="465" y="40" width="80" height="80" opacity="0.85"/>
+          <text x="560" y="86" class="op" text-anchor="middle">+</text>
+          <rect class="f4" x="575" y="40" width="80" height="80" opacity="0.85"/>
+          <text x="285" y="138" text-anchor="middle">part 1</text><text x="395" y="138" text-anchor="middle">part 2</text><text x="505" y="138" text-anchor="middle">part 3</text><text x="615" y="138" text-anchor="middle">part 4</text>
+          <path class="arrow" d="M450 150v36" marker-end="url(#ah)"/>
+          <rect class="box" x="410" y="196" width="80" height="80"/>
+          <text x="450" y="240" text-anchor="middle" class="strong">C</text>
+          <text x="505" y="222" class="bad">every number in C needs</text>
+          <text x="505" y="240" class="bad">a piece from every thread</text>
+          <text x="505" y="262">the four parts must be merged</text>
+          <text x="245" y="222" class="strong">Reads</text>
+          <text x="245" y="240">only its own part</text>
+          <text x="245" y="258">of A and of B</text>
+          <text x="245" y="296" class="strong">Writes</text>
+          <text x="245" y="314">all of C</text>
+        </svg>
+      </div>
+      <figcaption>Each thread adds up only its own range of k, so what it produces is a full-size matrix holding part of every sum. C is the four of them added together.</figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <h2>Who writes each number of C?</h2>
+    <figure>
+      <div class="panel">
+        <svg viewBox="0 0 700 246" role="img" aria-labelledby="f3">
+          <title id="f3">Split the output: four threads each write their own band of C, and their arrows never meet. Split the inputs: all four threads write the same number of C</title>
+          <defs>
+            <marker id="m1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path class="f1" d="M0 0l10 5l-10 5z"/></marker>
+            <marker id="m2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path class="f2" d="M0 0l10 5l-10 5z"/></marker>
+            <marker id="m3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path class="f3" d="M0 0l10 5l-10 5z"/></marker>
+            <marker id="m4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path class="f4" d="M0 0l10 5l-10 5z"/></marker>
+          </defs>
+
+          <!-- left: split the output. Four threads, four bands, four arrows that never meet -->
+          <text x="175" y="20" text-anchor="middle" class="strong">split the output</text>
+          <circle class="f1" cx="52" cy="58" r="13"/><circle class="f2" cx="52" cy="98" r="13"/><circle class="f3" cx="52" cy="138" r="13"/><circle class="f4" cx="52" cy="178" r="13"/>
+          <g style="fill:var(--surface); font-weight:600" text-anchor="middle">
+            <text x="52" y="62" style="fill:var(--surface)">1</text><text x="52" y="102" style="fill:var(--surface)">2</text><text x="52" y="142" style="fill:var(--surface)">3</text><text x="52" y="182" style="fill:var(--surface)">4</text>
+          </g>
+          <path d="M70 58h82" fill="none" stroke="var(--t1)" stroke-width="2" marker-end="url(#m1)"/>
+          <path d="M70 98h82" fill="none" stroke="var(--t2)" stroke-width="2" marker-end="url(#m2)"/>
+          <path d="M70 138h82" fill="none" stroke="var(--t3)" stroke-width="2" marker-end="url(#m3)"/>
+          <path d="M70 178h82" fill="none" stroke="var(--t4)" stroke-width="2" marker-end="url(#m4)"/>
+          <rect class="f1" x="160" y="38" width="160" height="40"/><rect class="f2" x="160" y="78" width="160" height="40"/><rect class="f3" x="160" y="118" width="160" height="40"/><rect class="f4" x="160" y="158" width="160" height="40"/>
+          <path class="sep" d="M160 78h160M160 118h160M160 158h160"/>
+          <text x="310" y="57" text-anchor="end" style="fill:var(--surface); font-weight:600; font-size:14px">C</text>
+          <text x="175" y="220" text-anchor="middle" class="good">one writer for every number</text>
+          <text x="175" y="238" text-anchor="middle">the threads never touch the same place</text>
+
+          <!-- right: split the inputs. Four threads all write the same number -->
+          <text x="525" y="20" text-anchor="middle" class="strong">split the inputs</text>
+          <circle class="f1" cx="402" cy="58" r="13"/><circle class="f2" cx="402" cy="98" r="13"/><circle class="f3" cx="402" cy="138" r="13"/><circle class="f4" cx="402" cy="178" r="13"/>
+          <text x="402" y="62" text-anchor="middle" style="fill:var(--surface); font-weight:600">1</text><text x="402" y="102" text-anchor="middle" style="fill:var(--surface); font-weight:600">2</text><text x="402" y="142" text-anchor="middle" style="fill:var(--surface); font-weight:600">3</text><text x="402" y="182" text-anchor="middle" style="fill:var(--surface); font-weight:600">4</text>
+          <rect class="fs" x="510" y="38" width="160" height="160"/>
+          <rect class="outline" x="510" y="38" width="160" height="160"/>
+          <text x="660" y="57" text-anchor="end" class="strong" style="font-size:14px">C</text>
+          <!-- the one number, drawn as a cell with a quarter from each thread -->
+          <rect class="f1" x="578" y="106" width="12" height="12"/><rect class="f2" x="590" y="106" width="12" height="12"/><rect class="f3" x="578" y="118" width="12" height="12"/><rect class="f4" x="590" y="118" width="12" height="12"/>
+          <rect x="578" y="106" width="24" height="24" fill="none" stroke="var(--fg)" stroke-width="1.5"/>
+          <path d="M420 58 C 480 58, 520 100, 572 110" fill="none" stroke="var(--t1)" stroke-width="2" marker-end="url(#m1)"/>
+          <path d="M420 98 C 470 98, 520 108, 572 115" fill="none" stroke="var(--t2)" stroke-width="2" marker-end="url(#m2)"/>
+          <path d="M420 138 C 470 138, 520 128, 572 121" fill="none" stroke="var(--t3)" stroke-width="2" marker-end="url(#m3)"/>
+          <path d="M420 178 C 480 178, 520 136, 572 126" fill="none" stroke="var(--t4)" stroke-width="2" marker-end="url(#m4)"/>
+          <text x="590" y="150" text-anchor="middle" class="strong">one number</text>
+          <text x="525" y="220" text-anchor="middle" class="bad">four writers for every number</text>
+          <text x="525" y="238" text-anchor="middle">the same holds for all n² numbers</text>
+        </svg>
+      </div>
+      <figcaption>The circles are the four threads and the arrows are their writes. On the left each thread writes into its own band, so no two arrows land in the same place. On the right all four land on the same number. This picture is the whole argument. The sections below say what it costs.</figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <h2>1. Nothing to synchronize</h2>
+    <div class="prose">
+      <p>A race needs two threads using the same data, with at least one of them writing (Lecture 14). When the output is split, the threads share only A and B, and nobody writes those. Each number in C has one writer. So there are no locks, no atomics, and no thread ever waits for another.</p>
+      <p>Put another way, the threads have <b>no dependencies</b> on each other. No thread needs a result from another thread, so they can run in any order, at any speed, and still be correct.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>2. Sharing reads is free. Sharing writes is not.</h2>
+    <div class="prose">
+      <p>Splitting the output makes every thread read all of B. That sounds wasteful, but data that is only read can sit in every core's cache at once. Nothing ever has to be updated or handed over (Lecture 13).</p>
+      <p>Splitting the inputs avoids those repeated reads, and pays with repeated <em>writes</em>: every thread writes every part of C. When several cores write the same cache line, the line has to move from core to core, and each move takes far longer than the arithmetic. This is the true sharing from Lecture 13.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>3. Every way of merging costs something</h2>
+    <div class="prose"><p>If the inputs are split, the pieces have to be combined. There are three ways to do it, and we measured all three.</p></div>
+    <ul class="plain">
+      <li><b>An atomic add for every term.</b> Safe, but there are n³ of them. Each is a small retry loop, and the compiler can't turn that into vector code. It is 12 times slower even with one thread.</li>
+      <li><b>Add up a whole row privately, then add it into C with atomics.</b> Far fewer atomics. But each one has to wait for its cache line to arrive from whichever core wrote it last.</li>
+      <li><b>Give each thread a private copy of C, and add the copies at the end.</b> No atomics. It costs a full extra copy of C for every thread (64 MB for n = 2048 on 4 threads), and every thread writes a whole matrix.</li>
+    </ul>
+    <figure>
+      <div class="panel bars">
+        <div class="bar-group">
+          <h3>n = 1024, 4 threads</h3>
+          <div class="bar-row"><span class="name">Split the output<small>no merge</small></span><div class="track"><div class="fill c" style="width:93.8%"></div></div><span class="v">113</span></div>
+          <div class="bar-row"><span class="name">Split inputs, private copies<small>merge at the end</small></span><div class="track"><div class="fill" style="width:95.4%"></div></div><span class="v">115</span></div>
+          <div class="bar-row"><span class="name">Split inputs, atomic per row</span><div class="track"><div class="fill" style="width:53.2%"></div></div><span class="v">64</span></div>
+          <div class="bar-row"><span class="name">Split inputs, atomic per term</span><div class="track"><div class="fill" style="width:6.1%"></div></div><span class="v">7</span></div>
+        </div>
+        <div class="bar-group">
+          <h3>n = 2048, 4 threads</h3>
+          <div class="bar-row"><span class="name">Split the output<small>no merge</small></span><div class="track"><div class="fill c" style="width:91.9%"></div></div><span class="v">110</span></div>
+          <div class="bar-row"><span class="name">Split inputs, private copies<small>merge at the end</small></span><div class="track"><div class="fill" style="width:86.8%"></div></div><span class="v">104</span></div>
+          <div class="bar-row"><span class="name">Split inputs, atomic per row</span><div class="track"><div class="fill" style="width:71%"></div></div><span class="v">85</span></div>
+        </div>
+      </div>
+      <figcaption>GFLOP/s on the M5's 4 fast cores, all with the same inner loop; bars are drawn to 120. One thread runs at 35 for every version except atomic-per-term, which runs at 2.8. Atomic-per-term was not run at n = 2048: it would need 8.6 billion atomic adds.</figcaption>
+    </figure>
+    <div class="prose">
+      <p>Private copies keep up, at the price of memory: four extra copies of C. Atomic-per-row is <em>slower on 4 threads than on 2</em> at n = 1024 (64 against 69). Splitting the output matches the best of them and needs nothing extra.</p>
+      <p>It also gets worse with more threads. The merging work grows with the number of threads, while each thread's share of the multiply shrinks.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>4. The same answer every time</h2>
+    <div class="prose">
+      <p>Floating-point addition rounds, so adding the same numbers in a different order can change the last digits of the result.</p>
+    </div>
+    <figure>
+      <div class="panel">
+        <svg viewBox="0 0 700 170" role="img" aria-labelledby="f4">
+          <title id="f4">Split output adds the terms of each sum in order; split inputs adds four partial sums in whatever order the threads finish</title>
+          <text x="20" y="22" class="strong">split the output: one thread adds all the terms, in order</text>
+          <g class="f2">
+            <rect x="20" y="32" width="38" height="20"/><rect x="60" y="32" width="38" height="20"/><rect x="100" y="32" width="38" height="20"/><rect x="140" y="32" width="38" height="20"/><rect x="180" y="32" width="38" height="20"/><rect x="220" y="32" width="38" height="20"/><rect x="260" y="32" width="38" height="20"/><rect x="300" y="32" width="38" height="20"/><rect x="340" y="32" width="38" height="20"/><rect x="380" y="32" width="38" height="20"/><rect x="420" y="32" width="38" height="20"/><rect x="460" y="32" width="38" height="20"/>
+          </g>
+          <path class="arrow" d="M20 62h476" marker-end="url(#ah)"/>
+          <text x="510" y="48" class="good">same order every run</text>
+          <text x="510" y="66">k = 0, 1, 2, …</text>
+          <text x="20" y="106" class="strong">split the inputs: four partial sums, added as they arrive</text>
+          <rect class="f1" x="20" y="116" width="118" height="20"/><rect class="f2" x="140" y="116" width="118" height="20"/><rect class="f3" x="260" y="116" width="118" height="20"/><rect class="f4" x="380" y="116" width="118" height="20"/>
+          <text x="79" y="154" text-anchor="middle">2nd?</text><text x="199" y="154" text-anchor="middle">4th?</text><text x="319" y="154" text-anchor="middle">1st?</text><text x="439" y="154" text-anchor="middle">3rd?</text>
+          <text x="510" y="130" class="bad">order depends on timing</text>
+          <text x="510" y="148">last digits can change</text>
+        </svg>
+      </div>
+      <figcaption>Each bar is the sum for one number in C. With the output split, the result is identical to the one-thread program, bit for bit. With the inputs split and atomics, two runs of the same program can give slightly different answers.</figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <h2>5. Each thread gets a complete, smaller problem</h2>
+    <div class="prose">
+      <p>A band of rows of C is a matrix multiply of its own: fewer rows, same columns, the whole of k. Everything from the earlier steps of the lecture works on it without change: the loop order, the tiling, the compiler flags. On the M5's 4 fast cores it runs 3.1–3.2 times faster than one core, and reaches 135–146 GFLOP/s with the tiled loop inside.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Side by side</h2>
+    <div class="panel table-wrap">
+      <table>
+        <thead><tr><th></th><th>Split the output C</th><th>Split the inputs (k)</th></tr></thead>
+        <tbody>
+          <tr><th>Each thread reads</th><td>its rows of A, all of B</td><td>its part of A and of B</td></tr>
+          <tr><th>Each thread writes</th><td>its own band of C</td><td>all of C</td></tr>
+          <tr><th>Writers per number in C</th><td class="yes">one</td><td class="no">one per thread</td></tr>
+          <tr><th>Dependencies between threads</th><td class="yes">none</td><td class="no">results must be merged</td></tr>
+          <tr><th>Synchronization</th><td class="yes">none</td><td class="no">atomics, or private copies and a merge</td></tr>
+          <tr><th>Extra memory</th><td class="yes">none</td><td>none with atomics; a copy of C per thread otherwise</td></tr>
+          <tr><th>Same answer every run</th><td class="yes">yes, same as one thread</td><td class="no">depends on the order of merging</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>When splitting the inputs is right</h2>
+    <div class="prose">
+      <p>Splitting the output only works if there is enough output to go around. Sometimes there isn't.</p>
+    </div>
+    <figure>
+      <div class="panel">
+        <svg viewBox="0 0 700 200" role="img" aria-labelledby="f5">
+          <title id="f5">A tiny C with a very long k: A is short and very wide, B is very tall and narrow; splitting k gives each thread plenty of work</title>
+          <text x="20" y="150" class="strong">A: 64 rows, a million columns</text>
+          <rect class="f1" x="20" y="160" width="70" height="20"/><rect class="f2" x="90" y="160" width="70" height="20"/><rect class="f3" x="160" y="160" width="70" height="20"/><rect class="f4" x="230" y="160" width="70" height="20"/>
+          <path class="sep" d="M90 160v20M160 160v20M230 160v20"/>
+          <rect class="f1" x="320" y="20" width="20" height="32"/><rect class="f2" x="320" y="52" width="20" height="32"/><rect class="f3" x="320" y="84" width="20" height="32"/><rect class="f4" x="320" y="116" width="20" height="32"/>
+          <path class="sep" d="M320 52h20M320 84h20M320 116h20"/>
+          <text x="352" y="40" class="strong">B: a million rows,</text>
+          <text x="352" y="58" class="strong">64 columns</text>
+          <rect class="box" x="320" y="160" width="20" height="20"/>
+          <text x="352" y="175" class="strong">C: 64 × 64</text>
+          <text x="470" y="100">C has only 4,096 numbers.</text>
+          <text x="470" y="118">Each is a sum of a million terms.</text>
+          <text x="470" y="146" class="strong">Too little output to share.</text>
+          <text x="470" y="164" class="strong">Plenty of sum to share.</text>
+        </svg>
+      </div>
+      <figcaption>Here the merge is tiny, because C is tiny, and the long sum is where the work is. Libraries for graphics cards do exactly this and call it split-K.</figcaption>
+    </figure>
+    <p class="callout">The rule: split the output for as long as that gives every thread enough work. Split the sum only when it doesn't.</p>
+  </section>
+
+  <p class="foot">Code: <span class="mono">examples/matmul/mm_mt.cpp</span>. Split output is <code>c_rows</code>; split inputs are <code>k_private</code>, <code>k_atomic_row</code> and <code>k_atomic</code>. Run <span class="mono">make run_mt</span>. Measured on an Apple M5 with 1, 2 and 4 threads on its 4 fast cores.</p>
+</main>
+</body>
+</html>

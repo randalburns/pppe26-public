@@ -55,10 +55,20 @@ $(RESULTS): mm_O0 mm_O3 mm_fast
 
 run: $(RESULTS)
 
-plot: $(RESULTS) $(CEILINGS)
-	python3 plot_mm.py $(RESULTS) $(CEILINGS) --machine "$(MACHINE)"
+# Register tiling, with ikj and the best k tile for comparison.
+RESULTS_REG = results_reg.M5.csv
+REG_SHAPES  = 1x16 2x16 4x4 4x8 4x16 8x8 8x16 16x16
+REG_KERNS   = ikj tile_k16 $(foreach S,$(REG_SHAPES),reg$(S) reg$(S)_k64 reg$(S)_k256)
+$(RESULTS_REG): mm_fast
+	rm -f $@
+	for n in 1024 2048; do ./mm_fast $$n $(REG_KERNS) | tee -a $@; done
+
+run_reg: $(RESULTS_REG)
+
+plot: $(RESULTS) $(RESULTS_REG) $(CEILINGS)
+	python3 plot_mm.py $(RESULTS) $(CEILINGS) --reg $(RESULTS_REG) --machine "$(MACHINE)"
 
 clean:
 	rm -f mm_O0 mm_O3 mm_fast mm_mt
 
-.PHONY: all run run_mt plot clean
+.PHONY: all run run_mt run_reg plot clean

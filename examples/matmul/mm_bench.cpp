@@ -15,6 +15,9 @@
 //   ikj          interchange: inner loop walks rows of B and C   (RIC)
 //   tile_k<T>    ikj with k blocked by T, kk outermost            (RIC + tiling on I)
 //   tile_ijk<T>  i, j and k all blocked by T                      (tiling on multiple dimensions)
+//   reg<M>x<R>   register tiling: an M x R block of C held in registers for
+//                the whole k loop (the step after the blog: BLIS's micro-kernel)
+//   reg<M>x<R>_k<K>  the same, with k blocked by K, kk outermost
 //
 // Sizes are compile-time constants, as in the blog: the compiler knows every
 // trip count. Pointers are not __restrict__, also as in the blog, so the
@@ -89,6 +92,45 @@ static void mm_tile_ijk(const float* A, const float* B, float* C) {
                     }
 }
 
+// Register tiling. The MR x NR block of C at (i, j) lives in acc, a local
+// array the compiler keeps in vector registers, for the whole k loop. Each
+// k step loads NR floats of one row of B (NR/4 NEON vectors), and MR floats
+// of one column of A, and does MR x NR multiply-adds with them: every B
+// vector is used MR times and every A value NR times before it is dropped.
+// C is loaded once and stored once per block, not once per k.
+//
+// The M5 has 32 vector registers of 4 floats. The block needs MR*NR/4 for
+// acc and NR/4 for the row of B, so 8x8 (16 + 2) and 4x16 (16 + 4) fit,
+// and 8x16 (32 + 4) does not: acc spills to the stack.
+//
+// KC < N blocks k as tile_k does: the MR rows of A and the KC x N panel of
+// B for one kk are reused across a whole sweep of i and j.
+template <int N, int MR, int NR, int KC>
+static void mm_reg(const float* A, const float* B, float* C) {
+    static_assert(N % MR == 0 && N % NR == 0 && N % KC == 0, "tile must divide N");
+    for (int kk = 0; kk < N; kk += KC)
+        for (int i = 0; i < N; i += MR)
+            for (int j = 0; j < N; j += NR) {
+                float acc[MR][NR];
+                for (int r = 0; r < MR; r++)
+                    for (int c = 0; c < NR; c++) acc[r][c] = C[(i + r) * N + j + c];
+                // Vectorize across c (one row of B), not across k. Left to
+                // itself, clang vectorizes the 8x8 block along k instead,
+                // spills nearly every accumulator, and runs at a third of
+                // the speed (39 against 107 GFLOP/s at n = 1024).
+#pragma clang loop vectorize(disable)
+                for (int k = kk; k < kk + KC; k++) {
+                    const float* b = &B[k * N + j];
+                    for (int r = 0; r < MR; r++) {
+                        float a = A[(i + r) * N + k];
+                        for (int c = 0; c < NR; c++) acc[r][c] += a * b[c];
+                    }
+                }
+                for (int r = 0; r < MR; r++)
+                    for (int c = 0; c < NR; c++) C[(i + r) * N + j + c] = acc[r][c];
+            }
+}
+
 using Kernel = void (*)(const float*, const float*, float*);
 
 template <int N>
@@ -101,6 +143,12 @@ static Kernel lookup(const std::string& name) {
     if (name == "tile_ijk" #T) return mm_tile_ijk<N, T>;
     TILE(4) TILE(8) TILE(16) TILE(32) TILE(64) TILE(128) TILE(256)
 #undef TILE
+#define REG(M, R)                                                         \
+    if (name == "reg" #M "x" #R)        return mm_reg<N, M, R, N>;        \
+    if (name == "reg" #M "x" #R "_k64")  return mm_reg<N, M, R, 64>;      \
+    if (name == "reg" #M "x" #R "_k256") return mm_reg<N, M, R, 256>;
+    REG(1, 16) REG(2, 16) REG(4, 4) REG(4, 8) REG(4, 16) REG(8, 8) REG(8, 16) REG(16, 16)
+#undef REG
     return nullptr;
 }
 

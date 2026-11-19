@@ -1,0 +1,399 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CPU Matrix Units</title>
+<style>
+/* Layout: one reading column; diagrams, bars and the comparison table use the full measure. */
+:root {
+  --bg: #f4f6f6;
+  --surface: #ffffff;
+  --fg: #16201f;
+  --muted: #586664;
+  --rule: #d6dedd;
+  --apple: #0f7b6c;      /* Apple */
+  --apple-soft: #d5ece8;
+  --intel: #2d5bb8;      /* Intel */
+  --intel-soft: #dce5f6;
+  --amd: #b4532a;        /* AMD */
+  --amd-soft: #f4e1d7;
+  --nv: #6a7d0c;         /* NVIDIA */
+  --nv-soft: #e8edcf;
+  --neon: #8a9694;
+  --font-display: "Instrument Sans", "Helvetica Neue", Arial, sans-serif;
+  --font-body: "Instrument Sans", "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1514; --surface: #161e1d; --fg: #e2ebea; --muted: #97a7a4; --rule: #27322f;
+    --apple: #4fc2ae; --apple-soft: #173a34; --intel: #7fa4f0; --intel-soft: #1d2a45;
+    --amd: #ec9468; --amd-soft: #3e261b; --nv: #b5cc55; --nv-soft: #2c3413; --neon: #78857f;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1514; --surface: #161e1d; --fg: #e2ebea; --muted: #97a7a4; --rule: #27322f;
+  --apple: #4fc2ae; --apple-soft: #173a34; --intel: #7fa4f0; --intel-soft: #1d2a45;
+  --amd: #ec9468; --amd-soft: #3e261b; --nv: #b5cc55; --nv-soft: #2c3413; --neon: #78857f;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg);
+  font: 16px/1.6 var(--font-body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 40px 64px;
+}
+main { max-width: 900px; margin: 0 auto; display: grid; gap: 44px; }
+.prose { max-width: 66ch; display: grid; gap: 12px; }
+h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; line-height: 1.15; margin: 0; }
+h1 { font-size: clamp(2rem, 5vw, 2.9rem); font-weight: 700; letter-spacing: -0.01em; }
+h2 { font-size: 1.45rem; font-weight: 600; }
+h3 { font-size: 1.08rem; font-weight: 600; }
+p { margin: 0; }
+section { display: grid; gap: 16px; }
+.eyebrow { font: 600 0.75rem/1 var(--font-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.lede { font-size: 1.15rem; color: var(--muted); max-width: 62ch; }
+code, .mono { font-family: var(--font-mono); font-size: 0.86em; }
+figure { margin: 0; display: grid; gap: 10px; }
+figcaption { color: var(--muted); font-size: 0.9rem; max-width: 72ch; }
+.panel { background: var(--surface); border: 1px solid var(--rule); border-radius: 8px; padding: 16px; overflow-x: auto; }
+svg { display: block; width: 100%; height: auto; max-width: 100%; }
+svg text { font-family: var(--font-mono); fill: var(--muted); font-size: 12px; }
+svg .strong { fill: var(--fg); font-weight: 600; }
+.v-neon { fill: var(--surface); stroke: var(--neon); stroke-width: 1.4; }
+.v-x { fill: var(--apple-soft); stroke: var(--apple); stroke-width: 1.2; }
+.z-cell { fill: var(--apple-soft); stroke: var(--apple); stroke-width: 0.5; }
+.t-a { fill: var(--intel-soft); stroke: var(--intel); stroke-width: 1.2; }
+.t-c { fill: var(--intel-soft); stroke: var(--intel); stroke-width: 1.5; }
+.grid-line { stroke: var(--intel); stroke-width: 0.4; opacity: 0.6; }
+.nv-m { fill: var(--nv-soft); stroke: var(--nv); stroke-width: 1.3; }
+.nv-g { stroke: var(--nv); stroke-width: 0.6; opacity: 0.7; }
+.op { fill: var(--fg); font-size: 18px; font-family: var(--font-display); }
+
+.bars { display: grid; gap: 10px; }
+.bar-row { display: grid; grid-template-columns: minmax(9em, 15em) 1fr 5.5em; align-items: center; gap: 12px; font-size: 0.9rem; }
+.bar-row .name { min-width: 0; }
+.bar-row .name small { display: block; color: var(--muted); font-size: 0.78rem; }
+.track { height: 18px; background: var(--bg); border-radius: 3px; }
+.fill { height: 100%; border-radius: 3px; min-width: 2px; }
+.f-neon { background: var(--neon); }
+.f-apple { background: var(--apple); }
+.f-nv { background: var(--nv); }
+.bar-row .v { font-family: var(--font-mono); font-variant-numeric: tabular-nums; text-align: right; font-size: 0.86rem; }
+
+.terms { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 10px 24px; margin: 0; }
+.terms div { min-width: 0; }
+.terms dt { font-weight: 600; }
+.terms dd { margin: 0; color: var(--muted); font-size: 0.93rem; }
+
+.vendors { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+.vendor { background: var(--surface); border: 1px solid var(--rule); border-radius: 8px; padding: 18px; display: grid; gap: 10px; align-content: start; min-width: 0; }
+.tag { font: 600 0.72rem/1 var(--font-mono); letter-spacing: 0.08em; text-transform: uppercase; padding: 5px 8px; border-radius: 4px; justify-self: start; }
+.tag.apple { background: var(--apple-soft); color: var(--apple); }
+.tag.intel { background: var(--intel-soft); color: var(--intel); }
+.tag.amd { background: var(--amd-soft); color: var(--amd); }
+.tag.nv { background: var(--nv-soft); color: var(--nv); }
+.vendor ul { margin: 0; padding-left: 1.1em; display: grid; gap: 6px; font-size: 0.93rem; }
+.vendor .status { font-size: 0.86rem; color: var(--muted); border-top: 1px solid var(--rule); padding-top: 10px; }
+
+.table-wrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 0.88rem; }
+table.wide { min-width: 820px; }
+th, td { padding: 9px 10px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--rule); }
+thead th { font-size: 0.78rem; letter-spacing: 0.04em; color: var(--muted); font-weight: 600; }
+tbody th { font-weight: 600; color: var(--muted); font-size: 0.82rem; }
+th.c-apple { color: var(--apple); } th.c-intel { color: var(--intel); } th.c-amd { color: var(--amd); } th.c-nv { color: var(--nv); }
+ul.plain { margin: 0; padding-left: 1.2em; display: grid; gap: 8px; }
+.callout { border-left: 3px solid var(--apple); padding: 4px 0 4px 14px; max-width: 66ch; }
+.sources { font-size: 0.86rem; color: var(--muted); display: grid; gap: 6px; border-top: 1px solid var(--rule); padding-top: 18px; }
+.sources ul { margin: 0; padding-left: 1.2em; display: grid; gap: 4px; }
+.sources a { color: inherit; }
+a:focus-visible { outline: 2px solid var(--intel); outline-offset: 2px; }
+@media (max-width: 560px) {
+  .bar-row { grid-template-columns: 1fr 4.6em; }
+  .bar-row .track { grid-column: 1 / -1; grid-row: 2; }
+}
+</style>
+</head>
+<body>
+<main>
+  <header style="display:grid; gap:14px">
+    <div class="eyebrow">After Lecture 17 · hardware built for matrix multiply</div>
+    <h1>Matrix units: Apple, Intel, AMD and NVIDIA</h1>
+    <p class="lede">Matrix multiply is so common, especially in machine learning, that chip makers now build hardware just for it. On this Apple M5, the built-in matrix unit multiplies matrices 18 times faster than our best code from Lecture 17.</p>
+  </header>
+
+  <section>
+    <h2>Measured on this M5</h2>
+    <div class="prose"><p>Accelerate is Apple's math library. Its matrix multiply, <code>sgemm</code>, uses the matrix unit. The grey bars are our own kernels from Lecture 17, which use ordinary vector (NEON) instructions.</p></div>
+    <figure>
+      <div class="panel bars">
+        <div class="bar-row"><span class="name"><code>ikj</code><small>Lecture 17</small></span><div class="track"><div class="fill f-neon" style="width:1.7%"></div></div><span class="v">35</span></div>
+        <div class="bar-row"><span class="name"><code>reg4x16_k64</code><small>register tiled</small></span><div class="track"><div class="fill f-neon" style="width:4.8%"></div></div><span class="v">101</span></div>
+        <div class="bar-row"><span class="name">NEON peak<small>the most one core can do</small></span><div class="track"><div class="fill f-neon" style="width:6.1%"></div></div><span class="v">130</span></div>
+        <div class="bar-row"><span class="name">Accelerate <code>sgemm</code><small>1 thread, matrix unit</small></span><div class="track"><div class="fill f-apple" style="width:86.7%"></div></div><span class="v">1,847</span></div>
+        <div class="bar-row"><span class="name">Accelerate <code>sgemm</code><small>all threads</small></span><div class="track"><div class="fill f-apple" style="width:100%"></div></div><span class="v">2,129</span></div>
+      </div>
+      <figcaption>GFLOP/s (billions of floating-point operations per second), 32-bit floats, 2048 × 2048 matrices, best of 5 runs. Using every thread adds only 15%. The cores share one matrix unit, so extra threads mostly wait their turn.</figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <h2>The idea: one instruction, hundreds of multiply-adds</h2>
+    <div class="prose">
+      <p>A vector instruction on the M5 does 4 multiply-adds at once. A matrix instruction takes two vectors of 16 numbers and multiplies every number in one by every number in the other. That is 16 × 16 = 256 multiply-adds from one instruction, and only 32 numbers had to be loaded.</p>
+      <p>This is the register tiling from Lecture 17, built into the hardware. Our <code>reg4x16</code> kernel kept a 4 × 16 block of the result in registers and updated all of it from a few loaded values. A matrix unit keeps a much bigger block of the result inside itself and updates it in one step.</p>
+    </div>
+    <figure>
+      <div class="panel">
+        <svg viewBox="0 0 700 300" role="img" aria-labelledby="op-t">
+          <title id="op-t">A NEON instruction does 4 multiply-adds; a matrix instruction multiplies two 16-number vectors into a 16 by 16 block, 256 multiply-adds</title>
+          <text x="20" y="24" class="strong">Vector instruction</text>
+          <text x="20" y="42">4 multiply-adds</text>
+          <g>
+            <rect class="v-neon" x="20" y="64" width="22" height="22"/><rect class="v-neon" x="42" y="64" width="22" height="22"/><rect class="v-neon" x="64" y="64" width="22" height="22"/><rect class="v-neon" x="86" y="64" width="22" height="22"/>
+            <text x="120" y="80" class="op">×</text>
+            <rect class="v-neon" x="20" y="98" width="22" height="22"/><rect class="v-neon" x="42" y="98" width="22" height="22"/><rect class="v-neon" x="64" y="98" width="22" height="22"/><rect class="v-neon" x="86" y="98" width="22" height="22"/>
+            <text x="58" y="146" class="op" text-anchor="middle">↓ +=</text>
+            <rect class="v-neon" x="20" y="160" width="22" height="22"/><rect class="v-neon" x="42" y="160" width="22" height="22"/><rect class="v-neon" x="64" y="160" width="22" height="22"/><rect class="v-neon" x="86" y="160" width="22" height="22"/>
+            <text x="20" y="206">4 numbers at a time</text>
+          </g>
+          <text x="240" y="24" class="strong">Matrix instruction (outer product)</text>
+          <text x="240" y="42">16 × 16 = 256 multiply-adds</text>
+          <rect class="v-x" x="300" y="56" width="208" height="13"/>
+          <path stroke="var(--apple)" stroke-width="0.6" d="M313 56v13M326 56v13M339 56v13M352 56v13M365 56v13M378 56v13M391 56v13M404 56v13M417 56v13M430 56v13M443 56v13M456 56v13M469 56v13M482 56v13M495 56v13"/>
+          <text x="520" y="66">Y: 16 numbers</text>
+          <rect class="v-x" x="278" y="78" width="13" height="208"/>
+          <path stroke="var(--apple)" stroke-width="0.6" d="M278 91h13M278 104h13M278 117h13M278 130h13M278 143h13M278 156h13M278 169h13M278 182h13M278 195h13M278 208h13M278 221h13M278 234h13M278 247h13M278 260h13M278 273h13"/>
+          <text x="270" y="186" text-anchor="end">X: 16</text>
+          <text x="270" y="200" text-anchor="end">numbers</text>
+          <rect class="z-cell" x="300" y="78" width="208" height="208"/>
+          <path stroke="var(--apple)" stroke-width="0.4" opacity="0.7" d="M313 78v208M326 78v208M339 78v208M352 78v208M365 78v208M378 78v208M391 78v208M404 78v208M417 78v208M430 78v208M443 78v208M456 78v208M469 78v208M482 78v208M495 78v208M300 91h208M300 104h208M300 117h208M300 130h208M300 143h208M300 156h208M300 169h208M300 182h208M300 195h208M300 208h208M300 221h208M300 234h208M300 247h208M300 260h208M300 273h208"/>
+          <text x="520" y="170" class="strong">result block</text>
+          <text x="520" y="188">Z[i][j] += X[i] · Y[j]</text>
+          <text x="520" y="206">stays inside</text>
+          <text x="520" y="222">the unit</text>
+        </svg>
+      </div>
+      <figcaption>Multiplying every element of X by every element of Y is called an outer product. Matrix multiply is a sum of outer products: one column of A times one row of B, for each k.</figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <h2>Words you will see</h2>
+    <dl class="terms">
+      <div><dt>FLOP/s, GFLOP/s, TFLOP/s</dt><dd>Floating-point operations per second: billions (G) or trillions (T). 1 TFLOP/s = 1,000 GFLOP/s.</dd></div>
+      <div><dt>FP32, FP64</dt><dd>Ordinary 32-bit and 64-bit floats: C's <code>float</code> and <code>double</code>.</dd></div>
+      <div><dt>FP16, BF16</dt><dd>Two 16-bit float formats. Half the memory of FP32, less precise. Common in machine learning, where the lost precision usually doesn't matter.</dd></div>
+      <div><dt>INT8</dt><dd>8-bit integers. Used to run trained neural networks cheaply.</dd></div>
+      <div><dt>Tile</dt><dd>A small matrix held in a special register inside the matrix unit.</dd></div>
+      <div><dt>NEON, AVX-512</dt><dd>The ordinary vector instructions on Arm and x86. NEON handles 4 floats at a time, AVX-512 handles 16.</dd></div>
+    </dl>
+  </section>
+
+  <section>
+    <h2>In the CPU: three companies, three answers</h2>
+    <div class="vendors">
+      <article class="vendor">
+        <span class="tag apple">Apple</span>
+        <h3>A matrix unit in every Mac</h3>
+        <ul>
+          <li><b>Before 2024 (M1 to M3):</b> the unit was called AMX and was secret. Apple didn't publish its instructions. Programs could use it only by calling Apple's libraries.</li>
+          <li><b>M4 and M5:</b> the unit now uses SME, a public instruction set from Arm. Compilers can produce it and anyone can write code for it.</li>
+          <li>It handles ordinary 32-bit and 64-bit floats, as well as the smaller formats.</li>
+          <li>The cores share it. There is one unit for a group of cores, not one per core.</li>
+        </ul>
+        <p class="status">Available today. This M5 has it.</p>
+      </article>
+      <article class="vendor">
+        <span class="tag intel">Intel</span>
+        <h3>AMX, in server chips only</h3>
+        <ul>
+          <li>In Xeon server processors since 2023. Laptop and desktop Intel chips don't have it.</li>
+          <li>Every core gets its own unit: 8 tile registers and a multiplier for them.</li>
+          <li>It multiplies whole tiles: one instruction does up to 8,192 multiply-adds.</li>
+          <li><b>It doesn't take FP32.</b> Inputs must be BF16, FP16 or INT8. It was designed for machine learning, not general math.</li>
+        </ul>
+        <p class="status">Available today on Xeon. The operating system has to switch it on for each program.</p>
+      </article>
+      <article class="vendor">
+        <span class="tag amd">AMD</span>
+        <h3>No matrix unit yet</h3>
+        <ul>
+          <li>AMD's processors have nothing like AMX. They use AVX-512 vector instructions, including some made for BF16 and INT8.</li>
+          <li>AMD puts its matrix hardware in its graphics cards instead.</li>
+          <li><b>ACE</b> is a new matrix instruction set that AMD and Intel announced together in 2025. The goal is one design that works on both companies' future chips.</li>
+        </ul>
+        <p class="status">No processor with ACE has been announced as of late 2026.</p>
+      </article>
+    </div>
+  </section>
+
+  <section>
+    <h2>How Intel's version works</h2>
+    <div class="prose"><p>Apple's unit multiplies two vectors. Intel's multiplies two small matrices. All three matrices sit in tile registers, and one instruction computes C += A × B for the whole tile. Each tile holds up to 1 KB of data.</p></div>
+    <figure>
+      <div class="panel">
+        <svg viewBox="0 0 700 220" role="img" aria-labelledby="amx-t">
+          <title id="amx-t">Intel AMX: a 16 by 16 tile C gets A times B added to it, where A is 16 by 32 and B is 32 by 16</title>
+          <rect class="t-c" x="30" y="40" width="150" height="150"/>
+          <text x="105" y="28" text-anchor="middle" class="strong">C: 16 × 16, FP32</text>
+          <text x="208" y="122" class="op" text-anchor="middle">+=</text>
+          <rect class="t-a" x="240" y="40" width="200" height="150"/>
+          <path class="grid-line" d="M240 77.5h200M240 115h200M240 152.5h200M290 40v150M340 40v150M390 40v150"/>
+          <text x="340" y="28" text-anchor="middle" class="strong">A: 16 × 32, BF16</text>
+          <text x="468" y="122" class="op" text-anchor="middle">×</text>
+          <rect class="t-a" x="495" y="15" width="150" height="200"/>
+          <path class="grid-line" d="M495 65h150M495 115h150M495 165h150M532.5 15v200M570 15v200M607.5 15v200"/>
+          <text x="570" y="10" text-anchor="middle" class="strong">B: 32 × 16, BF16</text>
+        </svg>
+      </div>
+      <figcaption>The inputs are 16-bit floats and the result is 32-bit, so the sums don't lose precision as they build up. 16 × 16 × 32 = 8,192 multiply-adds in one instruction.</figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <span class="tag nv">NVIDIA</span>
+    <h2>In the GPU: NVIDIA Tensor Cores</h2>
+    <div class="prose">
+      <p>NVIDIA put matrix hardware in its graphics cards in 2017, before any of the CPU units above. Tensor Cores multiply two small matrices and add a third, D = A × B + C, in one step.</p>
+      <p>The sizes depend on the number format. With 16-bit floats, one step multiplies a 16 × 16 matrix by a 16 × 16 matrix. With TF32 (explained below), it is 16 × 8 times 8 × 16, written 16 × 16 × 8: a 16 × 16 result built from 8-term sums. With 64-bit floats it is 8 × 8 × 4. NVIDIA first described the 2017 hardware as a 4 × 4 unit; the sizes here are what one operation does on current GPUs.</p>
+      <p>The big difference from a CPU is the count. A CPU has one matrix unit, or one per core. A GPU has hundreds of Tensor Cores spread across the chip, all working at once. That is why GPUs dominate machine learning.</p>
+    </div>
+    <figure>
+      <div class="panel">
+        <svg viewBox="0 0 620 150" role="img" aria-labelledby="tc-t">
+          <title id="tc-t">One Tensor Core operation with TF32: a 16 by 16 result D equals a 16 by 8 matrix A times an 8 by 16 matrix B, plus a 16 by 16 matrix C</title>
+          <rect class="nv-m" x="40" y="40" width="80" height="80"/><path class="nv-g" d="M60 40v80M80 40v80M100 40v80M40 60h80M40 80h80M40 100h80"/>
+          <text x="80" y="28" text-anchor="middle" class="strong">D: 16 × 16</text>
+          <text x="155" y="88" class="op" text-anchor="middle">=</text>
+          <rect class="nv-m" x="210" y="40" width="40" height="80"/><path class="nv-g" d="M230 40v80M210 60h40M210 80h40M210 100h40"/>
+          <text x="230" y="28" text-anchor="middle" class="strong">A: 16 × 8</text>
+          <text x="305" y="88" class="op" text-anchor="middle">×</text>
+          <rect class="nv-m" x="340" y="60" width="80" height="40"/><path class="nv-g" d="M360 60v40M380 60v40M400 60v40M340 80h80"/>
+          <text x="380" y="48" text-anchor="middle" class="strong">B: 8 × 16</text>
+          <text x="455" y="88" class="op" text-anchor="middle">+</text>
+          <rect class="nv-m" x="490" y="40" width="80" height="80"/><path class="nv-g" d="M510 40v80M530 40v80M550 40v80M490 60h80M490 80h80M490 100h80"/>
+          <text x="530" y="28" text-anchor="middle" class="strong">C: 16 × 16</text>
+          <text x="310" y="142" text-anchor="middle">TF32, 16 × 16 × 8: 2,048 multiply-adds in one operation (each square is 4 × 4 numbers)</text>
+        </svg>
+      </div>
+      <figcaption>Operation sizes in CUDA, written rows of D × columns of D × terms in each sum: 16 × 16 × 16 for FP16 and BF16 (4,096 multiply-adds), 16 × 16 × 8 for TF32 (2,048), and 8 × 8 × 4 for FP64 (256). A GPU runs many of these at the same time.</figcaption>
+    </figure>
+
+    <h3>Each generation added number formats</h3>
+    <div class="panel table-wrap">
+      <table>
+        <thead><tr><th>Generation</th><th>Year</th><th>Formats added</th><th>What it was for</th></tr></thead>
+        <tbody>
+          <tr><th>Volta (V100)</th><td>2017</td><td>FP16</td><td>Training neural networks</td></tr>
+          <tr><th>Turing (RTX 20, T4)</th><td>2018</td><td>INT8</td><td>Running trained networks cheaply</td></tr>
+          <tr><th>Ampere (A100, RTX 30)</th><td>2020</td><td>BF16, TF32, FP64</td><td>FP32 programs with no code changes; scientific computing</td></tr>
+          <tr><th>Hopper (H100)</th><td>2022</td><td>FP8</td><td>Large language models</td></tr>
+          <tr><th>Blackwell</th><td>2024</td><td>FP4</td><td>Even smaller numbers for language models</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="prose">
+      <p><b>TF32</b> is worth knowing. Your program still stores ordinary 32-bit floats. The Tensor Core rounds each one to about 3 decimal digits of precision before multiplying, then adds up the results in full FP32. You get most of the speed of FP16 without changing your data. The answer is slightly less exact.</p>
+    </div>
+
+    <h3>How fast</h3>
+    <figure>
+      <div class="panel bars">
+        <div class="bar-row"><span class="name">This M5's matrix unit<small>FP32, measured</small></span><div class="track"><div class="fill f-apple" style="width:0.7%"></div></div><span class="v">2.1</span></div>
+        <div class="bar-row"><span class="name">A100, FP32<small>no Tensor Cores</small></span><div class="track"><div class="fill f-neon" style="width:6.3%"></div></div><span class="v">19.5</span></div>
+        <div class="bar-row"><span class="name">A100, TF32<small>Tensor Cores</small></span><div class="track"><div class="fill f-nv" style="width:50%"></div></div><span class="v">156</span></div>
+        <div class="bar-row"><span class="name">A100, FP16 or BF16<small>Tensor Cores</small></span><div class="track"><div class="fill f-nv" style="width:100%"></div></div><span class="v">312</span></div>
+      </div>
+      <figcaption>Peak TFLOP/s. The A100 numbers are NVIDIA's published peaks for its 2020 data-center GPU, not measurements from this class. On the same GPU, Tensor Cores are 8 times faster than ordinary FP32, and 16 times faster with 16-bit floats.</figcaption>
+    </figure>
+
+    <h3>What it costs</h3>
+    <ul class="plain prose">
+      <li><b>The data has to be on the GPU.</b> A GPU has its own memory. Copying matrices to it and back takes time, so small problems can be faster on the CPU.</li>
+      <li><b>The speed comes from smaller numbers.</b> The best rates need FP16, BF16 or smaller. Full FP32 doesn't use Tensor Cores at all, and TF32 gives up some precision.</li>
+      <li><b>You mostly use it through libraries.</b> cuBLAS and cuDNN use Tensor Cores for you. In PyTorch, turning on mixed precision (<code>torch.autocast</code>) is usually all it takes.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Side by side</h2>
+    <div class="panel table-wrap">
+      <table class="wide">
+        <thead>
+          <tr><th></th><th class="c-apple">Apple (M4, M5)</th><th class="c-intel">Intel (Xeon)</th><th class="c-amd">AMD (Zen 4, Zen 5)</th><th class="c-nv">NVIDIA (GPU)</th></tr>
+        </thead>
+        <tbody>
+          <tr><th>Name</th><td>SME (was AMX)</td><td>AMX</td><td>None yet; ACE planned</td><td>Tensor Cores</td></tr>
+          <tr><th>Where</th><td>One unit shared by a group of CPU cores</td><td>One unit in each CPU core</td><td>Vector instructions only</td><td>Hundreds of units across the GPU</td></tr>
+          <tr><th>One step does</th><td>Vector × vector into a block</td><td>Tile × tile</td><td>Vector multiply-adds</td><td>Small matrix × small matrix: 16 × 16 × 16 (FP16), 16 × 16 × 8 (TF32)</td></tr>
+          <tr><th>FP32 inputs</th><td>Yes</td><td>No</td><td>Yes (AVX-512)</td><td>Only as TF32, with rounding</td></tr>
+          <tr><th>Small formats</th><td>FP16, BF16, INT8</td><td>FP16, BF16, INT8</td><td>BF16, INT8</td><td>FP16, BF16, INT8, FP8, FP4</td></tr>
+          <tr><th>Where the data lives</th><td>Main memory</td><td>Main memory</td><td>Main memory</td><td>GPU memory; must be copied over</td></tr>
+          <tr><th>Peak FP32-class speed</th><td>About 2 TFLOP/s (measured)</td><td>FP32 not supported</td><td>AVX-512 rates</td><td>156 TFLOP/s as TF32 (A100)</td></tr>
+          <tr><th>How you use it</th><td>Accelerate, Core ML</td><td>oneDNN, PyTorch</td><td>AOCL, PyTorch</td><td>cuBLAS, cuDNN, PyTorch</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>What it does to the roofline</h2>
+    <div class="prose">
+      <p>The flat part of the roofline is the most arithmetic the processor can do. A matrix unit raises that roof on the M5 from 130 GFLOP/s to about 2,000. The slanted part, set by memory speed, doesn't move.</p>
+      <p>So a matrix unit only helps kernels that were limited by arithmetic. Matrix multiply is one: it does a lot of arithmetic per byte of data. Stencils, sparse matrix code and most other kernels from this course were limited by memory, and a matrix unit does nothing for them.</p>
+    </div>
+    <p class="callout">The lesson is the same as in Lecture 17: use each number you load as many times as you can. Register tiling did that with 16 registers. Matrix units and Tensor Cores do it in hardware.</p>
+  </section>
+
+  <section>
+    <h2>How to use one</h2>
+    <ul class="plain prose">
+      <li><b>Call a library.</b> This is what almost everyone does. Accelerate on a Mac, oneDNN or MKL on Intel, cuBLAS on NVIDIA. PyTorch and NumPy call these for you.</li>
+      <li><b>Write it yourself.</b> Each one has C functions (intrinsics) that map to its instructions: <code>arm_sme.h</code> for Apple, <code>immintrin.h</code> for Intel AMX, and the WMMA functions in CUDA for Tensor Cores.</li>
+      <li><b>Expect a start-up cost.</b> The CPU units have to be switched on before use, and a GPU needs its data copied over. Small matrices may not be worth it.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>One operation is only part of the answer</h2>
+    <div class="prose">
+      <p>Each element of a matrix product is a sum over all of k: <code>C[i][j] = Σ A[i][k] · B[k][j]</code>. For 1024 × 1024 matrices, that sum has 1,024 terms. No matrix unit adds all of them at once. One operation adds a few terms to every element of a small block of the result, and a loop repeats it until all of k is done.</p>
+    </div>
+    <div class="panel table-wrap">
+      <table>
+        <thead><tr><th>Unit</th><th>Terms of the sum added per operation</th><th>Result block</th><th>Operations per block at n = 1024</th></tr></thead>
+        <tbody>
+          <tr><th>Apple SME</th><td>1 (one column of A times one row of B)</td><td>16 × 16</td><td>1,024</td></tr>
+          <tr><th>NVIDIA Tensor Cores</th><td>8 with TF32, 16 with FP16</td><td>16 × 16</td><td>128 or 64</td></tr>
+          <tr><th>Intel AMX</th><td>32 with BF16</td><td>16 × 16</td><td>32</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="prose">
+      <p>So the result block is updated many times. That is why every one of these designs keeps the block <em>inside</em> the unit, in a tile or in registers, and not in memory. The block is loaded once, updated for every k, and stored once.</p>
+      <p>This is exactly the loop from Step 5 of the lecture: <code>acc</code> stayed in registers while k ran from 0 to N. The hardware changes how much work one step of that loop does. It doesn't change the loop.</p>
+      <p>These repeated updates are not the costly kind from Step 6. There, several threads each held part of the sum and had to merge their results. Here one thread owns the block and adds the terms in order, so nothing has to be merged.</p>
+    </div>
+  </section>
+
+  <div class="sources">
+    <div class="eyebrow">Measurements and sources</div>
+    <p>M5 numbers were measured for this page with <code>cblas_sgemm</code> from Accelerate (FP32, best of 5) and the Lecture 17 kernels in <span class="mono">examples/matmul</span>. That the M5's cores share one unit is inferred from those timings; Apple doesn't document it. The Tensor Core operation sizes are from NVIDIA's developer blog. The NVIDIA speeds and dates are from NVIDIA's published specifications as recalled, and were not re-checked for this page.</p>
+    <ul>
+      <li><a href="https://developer.nvidia.com/blog/using-tensor-cores-in-cuda-fortran" target="_blank" rel="noopener">NVIDIA developer blog: using Tensor Cores</a>: operation sizes for each number format</li>
+      <li><a href="https://github.com/corsix/amx" target="_blank" rel="noopener">corsix/amx</a>: Apple's original AMX instructions, worked out by reverse engineering</li>
+      <li><a href="https://github.com/tzakharko/m4-sme-exploration" target="_blank" rel="noopener">tzakharko/m4-sme-exploration</a> and <a href="https://scalable.uni-jena.de/opt/sme/micro.html" target="_blank" rel="noopener">Univ. Jena SME benchmarks</a>: SME on the Apple M4</li>
+      <li><a href="https://en.wikipedia.org/wiki/Advanced_Matrix_Extensions" target="_blank" rel="noopener">Advanced Matrix Extensions (Wikipedia)</a>: Intel AMX</li>
+      <li><a href="https://www.amd.com/en/blogs/2025/amd-and-intel-celebrate-first-anniversary-of-x86-ecosys.html" target="_blank" rel="noopener">AMD: x86 Ecosystem Advisory Group, first anniversary</a> and <a href="https://gigazine.net/gsc_news/en/20260622-ace-x86-ai-computation-extensions/" target="_blank" rel="noopener">Gigazine: ACE specification</a></li>
+    </ul>
+  </div>
+</main>
+</body>
+</html>

@@ -1,0 +1,494 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Loop Order Stepper</title>
+<style>
+/* Layout: two kernels side by side under one shared step control. Blue = read from memory, brick = written to memory, teal = held in a register. */
+:root {
+  --bg: #f4f6f6;
+  --surface: #ffffff;
+  --fg: #16201f;
+  --muted: #586664;
+  --rule: #d6dedd;
+  --cell: #e6ebea;
+  --load: #2d5bb8;
+  --store: #b3402e;
+  --reg: #0f7b6c;
+  --sum: #b06a12;
+  --hl: #fff3d6;
+  --font-display: "Instrument Sans", "Helvetica Neue", Arial, sans-serif;
+  --font-body: "Instrument Sans", "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1514; --surface: #161e1d; --fg: #e2ebea; --muted: #97a7a4; --rule: #27322f; --cell: #222c2a;
+    --load: #7fa4f0; --store: #ef8573; --reg: #4fc2ae; --sum: #e2a551; --hl: #3a3016;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1514; --surface: #161e1d; --fg: #e2ebea; --muted: #97a7a4; --rule: #27322f; --cell: #222c2a;
+  --load: #7fa4f0; --store: #ef8573; --reg: #4fc2ae; --sum: #e2a551; --hl: #3a3016;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg);
+  font: 16px/1.6 var(--font-body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 40px 64px;
+}
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+main { max-width: 1040px; margin: 0 auto; display: grid; gap: 36px; }
+.prose { max-width: 66ch; display: grid; gap: 12px; }
+h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; line-height: 1.15; margin: 0; }
+h1 { font-size: clamp(2rem, 5vw, 2.8rem); font-weight: 700; letter-spacing: -0.01em; }
+h2 { font-size: 1.45rem; font-weight: 600; }
+h3 { font-size: 1.1rem; font-weight: 600; }
+p { margin: 0; }
+section { display: grid; gap: 16px; }
+.eyebrow { font: 600 0.75rem/1 var(--font-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.lede { font-size: 1.15rem; color: var(--muted); max-width: 62ch; }
+code, .mono { font-family: var(--font-mono); font-size: 0.86em; }
+
+/* step control */
+.controls {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5;
+  background: var(--bg); border-bottom: 1px solid var(--rule);
+  padding-block: 10px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px;
+}
+.controls button {
+  font: 600 0.9rem var(--font-body); color: var(--fg); background: var(--surface);
+  border: 1px solid var(--rule); border-radius: 6px; padding: 6px 14px; cursor: pointer;
+}
+.controls button:hover { border-color: var(--muted); }
+.controls button:focus-visible, .controls input:focus-visible { outline: 2px solid var(--load); outline-offset: 2px; }
+.controls button.primary { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+.controls input[type=range] { flex: 1 1 160px; min-width: 120px; accent-color: var(--reg); }
+.where { font: 600 0.85rem var(--font-mono); font-variant-numeric: tabular-nums; color: var(--muted); }
+
+.pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; align-items: start; }
+.kernel { background: var(--surface); border: 1px solid var(--rule); border-radius: 8px; padding: 16px; display: grid; gap: 14px; min-width: 0; }
+.kernel .sub { color: var(--muted); font-size: 0.9rem; }
+.label { font: 600 0.72rem/1.2 var(--font-mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+
+pre.code { margin: 0; font: 400 0.78rem/1.75 var(--font-mono); overflow-x: auto; border: 1px solid var(--rule); border-radius: 6px; padding: 8px 0; }
+pre.code span.ln { display: block; padding: 0 10px; white-space: pre; border-left: 3px solid transparent; color: var(--muted); }
+pre.code span.ln.on { background: var(--hl); border-left-color: var(--sum); color: var(--fg); }
+pre.code span.ln.once { border-left-color: var(--store); }
+
+svg { display: block; width: 100%; height: auto; max-width: 380px; margin: 0 auto; }
+svg text { font-family: var(--font-mono); fill: var(--muted); font-size: 11px; }
+svg text.strong { fill: var(--fg); font-weight: 600; font-size: 12px; }
+.c { fill: var(--cell); stroke: var(--surface); stroke-width: 1; }
+.c.past { fill: var(--load); fill-opacity: 0.22; }
+.c.rd { fill: var(--load); }
+.c.sum { fill: var(--sum); }
+.c.held { fill: var(--reg); fill-opacity: 0.2; }
+.g { fill: none; stroke-width: 2; }
+.g.load { stroke: var(--load); } .g.store { stroke: var(--store); } .g.reg { stroke: var(--reg); }
+
+.regs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.r { border: 2px solid var(--reg); border-radius: 6px; padding: 6px; display: grid; gap: 5px; min-width: 0; }
+.r.temp { border-style: dashed; border-color: var(--store); }
+.r .nm { font: 600 0.68rem/1.2 var(--font-mono); overflow-wrap: anywhere; }
+.r .bar { height: 6px; background: var(--cell); border-radius: 3px; overflow: hidden; }
+.r .bar i { display: block; height: 100%; background: var(--sum); }
+.r .ops { font: 400 0.68rem/1.35 var(--font-mono); color: var(--muted); }
+.r .ops b.l { color: var(--load); } .r .ops b.s { color: var(--store); } .r .ops b.f { color: var(--reg); }
+
+.chips { display: flex; flex-wrap: wrap; gap: 6px; min-height: 58px; align-content: flex-start; }
+.chip { font: 600 0.74rem/1 var(--font-mono); padding: 6px 8px; border-radius: 4px; border: 1.5px solid; background: var(--surface); }
+.chip.l { color: var(--load); border-color: var(--load); }
+.chip.s { color: var(--store); border-color: var(--store); }
+.chip.f { color: var(--surface); background: var(--reg); border-color: var(--reg); }
+.stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; border-top: 1px solid var(--rule); padding-top: 12px; }
+.stats div { display: grid; gap: 2px; }
+.stats b { font: 600 1.35rem/1.1 var(--font-mono); font-variant-numeric: tabular-nums; }
+.stats span { font-size: 0.78rem; color: var(--muted); }
+.stats .l b { color: var(--load); } .stats .s b { color: var(--store); } .stats .f b { color: var(--reg); }
+
+.legend { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 0.85rem; color: var(--muted); }
+.legend i { display: inline-block; width: 12px; height: 12px; border-radius: 2px; vertical-align: -1px; margin-right: 6px; }
+.table-wrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; max-width: 760px; font-size: 0.92rem; }
+th, td { padding: 9px 10px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--rule); }
+thead th { font-size: 0.78rem; letter-spacing: 0.04em; color: var(--muted); font-weight: 600; }
+td.n, th.n { text-align: right; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+ul.plain { margin: 0; padding-left: 1.2em; display: grid; gap: 8px; max-width: 66ch; }
+.foot { color: var(--muted); font-size: 0.85rem; border-top: 1px solid var(--rule); padding-top: 16px; max-width: 72ch; }
+@media (max-width: 760px) { .pair { grid-template-columns: minmax(0, 1fr); } }
+</style>
+</head>
+<body>
+<main>
+  <header style="display:grid; gap:14px">
+    <div class="eyebrow">Lecture 17, Steps 2 and 5 · which loop goes inside</div>
+    <h1>Same multiply-adds, different trips to memory</h1>
+    <p class="lede">Step 2 put the j loop inside and got fast. Step 5 puts the k loop back inside and gets three times faster. Step both kernels together and watch where the numbers of C live while they are being summed.</p>
+  </header>
+
+  <section>
+    <div class="prose">
+      <p>Both panels do the same work at each step: <b>4 vector multiply-adds</b>, each on 4 numbers. The 4 are independent, so the CPU can run them at the same time. After 16 steps each kernel has finished 16 numbers of C.</p>
+      <p>The picture is drawn small: n = 16, and the tiled kernel keeps a 2 × 8 block in 4 registers. The real kernel keeps a 4 × 16 block in 16 registers.</p>
+    </div>
+    <div class="legend">
+      <span><i style="background:var(--load)"></i>read from memory this step</span>
+      <span><i style="background:var(--store)"></i>C loaded and stored this step</span>
+      <span><i style="background:var(--reg)"></i>held in registers</span>
+      <span><i style="background:var(--sum)"></i>sum so far (darker = more terms)</span>
+    </div>
+
+    <div class="controls">
+      <button id="btn-prev" type="button" aria-label="Previous step">◀ Back</button>
+      <button id="btn-next" type="button" class="primary" aria-label="Next step">Step ▶</button>
+      <button id="btn-play" type="button">Play</button>
+      <input id="rng-step" type="range" min="0" max="31" value="5" aria-label="Step">
+      <span class="where" id="where"></span>
+    </div>
+
+    <div class="pair">
+      <div class="kernel" id="K0">
+        <div>
+          <h3>j inside: <code>i, k, j</code> (Step 2)</h3>
+          <p class="sub">One step is one pass along a whole row of C.</p>
+        </div>
+        <pre class="code" id="code0"></pre>
+        <svg id="svg0" viewBox="0 0 372 362" role="img" aria-label="A, B and C for the i,k,j kernel at the current step"></svg>
+        <div>
+          <div class="label" style="margin-bottom:8px">4 registers, borrowed for one step</div>
+          <div class="regs" id="regs0"></div>
+        </div>
+        <div>
+          <div class="label" style="margin-bottom:8px">Vector operations in this step</div>
+          <div class="chips" id="chips0"></div>
+        </div>
+        <div class="stats" id="stats0"></div>
+      </div>
+
+      <div class="kernel" id="K1">
+        <div>
+          <h3>k inside: register tiled (Step 5)</h3>
+          <p class="sub">One step is one value of k for a whole block of C.</p>
+        </div>
+        <pre class="code" id="code1"></pre>
+        <svg id="svg1" viewBox="0 0 372 362" role="img" aria-label="A, B and C for the register tiled kernel at the current step"></svg>
+        <div>
+          <div class="label" style="margin-bottom:8px">4 registers, kept for all 16 steps</div>
+          <div class="regs" id="regs1"></div>
+        </div>
+        <div>
+          <div class="label" style="margin-bottom:8px">Vector operations in this step</div>
+          <div class="chips" id="chips1"></div>
+        </div>
+        <div class="stats" id="stats1"></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>What to watch for</h2>
+    <ul class="plain">
+      <li><b>The row of C on the left never rests.</b> Every step loads it from memory, adds one term, and stores it back. The same 16 numbers make that round trip 16 times.</li>
+      <li><b>The block of C on the right stays empty in memory until step 16.</b> The sums are in the registers. C is loaded once before the k loop and stored once after it.</li>
+      <li><b>Both kernels run 4 multiply-adds at once.</b> On the left they are 4 pieces of one row. On the right they are the 4 registers of one block. Neither kernel has one sum waiting on another.</li>
+      <li><b>The right side still walks down B.</b> Each step jumps one row ahead. That is the cost that shows up at n = 2048, and it is what tiling k and packing fix.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Why not keep j inside and hold C in registers anyway</h2>
+    <div class="prose">
+      <p>You can try it. Keep the same 2 × 8 block and the same 4 registers, but leave the j loop inside the k loop. The figure below runs that kernel on the same steps as the two above.</p>
+    </div>
+
+    <div class="controls">
+      <button id="btn-prev2" type="button" aria-label="Previous step">◀ Back</button>
+      <button id="btn-next2" type="button" class="primary" aria-label="Next step">Step ▶</button>
+      <button id="btn-play2" type="button">Play</button>
+      <input id="rng-step2" type="range" min="0" max="31" value="5" aria-label="Step">
+      <span class="where" id="where2"></span>
+    </div>
+
+    <div class="pair">
+      <div class="kernel" id="K2">
+        <div>
+          <h3>j inside, with a register block</h3>
+          <p class="sub">One step is one block of C at one value of k. Then j moves to the next block.</p>
+        </div>
+        <pre class="code" id="code2"></pre>
+        <svg id="svg2" viewBox="0 0 372 362" role="img" aria-label="A, B and C for the j-inside kernel with a register block at the current step"></svg>
+        <div>
+          <div class="label" style="margin-bottom:8px">4 registers, emptied after every step</div>
+          <div class="regs" id="regs2"></div>
+        </div>
+        <div>
+          <div class="label" style="margin-bottom:8px">Vector operations in this step</div>
+          <div class="chips" id="chips2"></div>
+        </div>
+        <div class="stats" id="stats2"></div>
+      </div>
+
+      <div style="display:grid; gap:16px; min-width:0">
+        <h3>What goes wrong</h3>
+        <ul class="plain">
+          <li><b>The block changes every step.</b> The j loop is inside, so after one term the kernel moves to the next block along the row. The registers are needed for that block.</li>
+          <li><b>So the block is stored after one term.</b> Its sums are not finished. They go back to memory with 1 term of 16 added.</li>
+          <li><b>And loaded again on the next k.</b> When k moves on, the kernel comes back to the same block, loads it, adds one more term, and stores it again.</li>
+          <li><b>The registers hold a block for one step, not sixteen.</b> Watch the two blocks of C take turns. Above, with k inside, one block stayed put until it was done.</li>
+        </ul>
+        <div class="prose">
+          <p>It does gain one thing over plain <code>i, k, j</code>. Each vector of B is used for 2 rows of C, so B is loaded half as often. The loads and stores of C are all still there.</p>
+          <p>Totals after all 32 steps. Every kernel has done the same 128 vector multiply-adds.</p>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Kernel</th><th class="n">Loads</th><th class="n">Stores</th></tr></thead>
+            <tbody>
+              <tr><td><code>i, k, j</code></td><td class="n">288</td><td class="n">128</td></tr>
+              <tr><td>j inside, with a register block</td><td class="n">256</td><td class="n">128</td></tr>
+              <tr><td>k inside, register tiled</td><td class="n">136</td><td class="n">8</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="prose">
+          <p>A register can only save a trip to memory if the same numbers stay in it from one step to the next. With j inside, the numbers that stay the same from step to step are a whole row of C. At n = 1024 a row is 256 vectors, and the M5 has 32 vector registers.</p>
+          <p>With k inside, the numbers that stay are the block you chose. Choose 4 × 16 and it is 16 vectors, which fits. Holding C in registers and putting k inside are the same decision.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>At real size</h2>
+    <div class="prose"><p>Memory operations for every 16 vector multiply-adds, with the real 4 × 16 block, and the speed measured on one M5 core at n = 1024.</p></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Kernel</th><th class="n">Loads of C</th><th class="n">Loads of B</th><th class="n">Loads of A</th><th class="n">Stores of C</th><th class="n">GFLOP/s</th></tr></thead>
+        <tbody>
+          <tr><td><code>i, k, j</code></td><td class="n">16</td><td class="n">16</td><td class="n">1 number per row pass</td><td class="n">16</td><td class="n">36</td></tr>
+          <tr><td>j inside, 4 × 16 block</td><td class="n">16</td><td class="n">4</td><td class="n">4 numbers</td><td class="n">16</td><td class="n">not measured</td></tr>
+          <tr><td>register tiled 4 × 16</td><td class="n">0</td><td class="n">4</td><td class="n">4 numbers</td><td class="n">0</td><td class="n">105</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="prose"><p>The tiled kernel also loads and stores its 16 registers of C once per block. Over the 1,024 steps of the k loop that adds almost nothing.</p></div>
+  </section>
+
+  <p class="foot">The code in both panels is simplified. <code>[0:8]</code> means elements 0 to 7. The compiler turns the j loop into vector operations on 4 numbers at a time. Measured code: <code>ikj</code> and <code>reg4x16</code> in <code>examples/matmul/mm_bench.cpp</code>.</p>
+</main>
+
+<script>
+(function () {
+  var N = 16, CELL = 9, W = N * CELL, STEPS = 32;
+  var AX = 22, AY = 194, BX = 196, BY = 24, CX = 196, CY = 194;
+  var NS = 'http://www.w3.org/2000/svg';
+
+  var CODE = [
+    [ 'for (i = 0; i < n; i++)',
+      '  for (k = 0; k < n; k++) {',
+      '    a = A[i][k];',
+      '    for (j = 0; j < n; j++)      // 4 at a time',
+      '      C[i][j] += a * B[k][j];    // load C, add, store C',
+      '  }' ],
+    [ 'for (i = 0; i < n; i += 2)',
+      '  for (j = 0; j < n; j += 8) {',
+      '    acc = C[i:i+2][j:j+8];       // load the block, once',
+      '    for (k = 0; k < n; k++)',
+      '      for (r = 0; r < 2; r++)',
+      '        acc[r][0:8] += A[i+r][k] * B[k][j:j+8];',
+      '    C[i:i+2][j:j+8] = acc;       // store the block, once',
+      '  }' ],
+    [ 'for (i = 0; i < n; i += 2)',
+      '  for (k = 0; k < n; k++)',
+      '    for (j = 0; j < n; j += 8) {',
+      '      acc = C[i:i+2][j:j+8];     // load the block, every step',
+      '      for (r = 0; r < 2; r++)',
+      '        acc[r][0:8] += A[i+r][k] * B[k][j:j+8];',
+      '      C[i:i+2][j:j+8] = acc;     // store the block, every step',
+      '    }' ]
+  ];
+
+  function el(tag, attrs, parent) {
+    var e = document.createElementNS(NS, tag);
+    for (var a in attrs) e.setAttribute(a, attrs[a]);
+    if (parent) parent.appendChild(e);
+    return e;
+  }
+
+  var K = [0, 1, 2].map(function (id) {
+    var svg = document.getElementById('svg' + id);
+    var cells = {};
+    [['A', AX, AY], ['B', BX, BY], ['C', CX, CY]].forEach(function (m) {
+      var arr = [];
+      for (var r = 0; r < N; r++) {
+        arr.push([]);
+        for (var c = 0; c < N; c++)
+          arr[r].push(el('rect', { x: m[1] + c * CELL, y: m[2] + r * CELL, width: CELL, height: CELL, 'class': 'c' }, svg));
+      }
+      cells[m[0]] = arr;
+    });
+    el('text', { x: AX + W / 2, y: AY + W + 18, 'text-anchor': 'middle', 'class': 'strong' }, svg).textContent = 'A';
+    el('text', { x: CX + W / 2, y: CY + W + 18, 'text-anchor': 'middle', 'class': 'strong' }, svg).textContent = 'C';
+    el('text', { x: BX - 10, y: BY + W / 2 + 4, 'text-anchor': 'end', 'class': 'strong' }, svg).textContent = 'B';
+    var over = el('g', {}, svg);
+    var pre = document.getElementById('code' + id);
+    var lines = CODE[id].map(function (t) {
+      var s = document.createElement('span'); s.className = 'ln'; s.textContent = t; pre.appendChild(s); return s;
+    });
+    return { id: id, cells: cells, over: over, lines: lines,
+             regs: document.getElementById('regs' + id), chips: document.getElementById('chips' + id),
+             stats: document.getElementById('stats' + id) };
+  });
+
+  function box(k, cls, x, y, w, h) { el('rect', { x: x + 1, y: y + 1, width: w - 2, height: h - 2, rx: 1.5, 'class': 'g ' + cls }, k.over); }
+  function tag(k, x, y, t, anchor) { el('text', { x: x, y: y, 'text-anchor': anchor || 'middle' }, k.over).textContent = t; }
+  function setCell(rect, cls, op) {
+    rect.setAttribute('class', 'c' + (cls ? ' ' + cls : ''));
+    if (op == null) rect.removeAttribute('fill-opacity'); else rect.setAttribute('fill-opacity', op);
+  }
+  function chips(k, list) {
+    k.chips.innerHTML = '';
+    list.forEach(function (c) { var s = document.createElement('span'); s.className = 'chip ' + c[0]; s.textContent = c[1]; k.chips.appendChild(s); });
+  }
+  function regs(k, names, temp, pct, ops) {
+    k.regs.innerHTML = '';
+    names.forEach(function (n) {
+      var d = document.createElement('div'); d.className = 'r' + (temp ? ' temp' : '');
+      d.innerHTML = '<div class="nm"></div><div class="bar"><i style="width:' + pct + '%"></i></div><div class="ops">' + ops + '</div>';
+      d.firstChild.textContent = n; k.regs.appendChild(d);
+    });
+  }
+  function stats(k, f, l, s) {
+    k.stats.innerHTML = '<div class="f"><b>' + f + '</b><span>vector multiply-adds</span></div>' +
+      '<div class="l"><b>' + l + '</b><span>loads</span></div><div class="s"><b>' + s + '</b><span>stores</span></div>';
+  }
+  function marks(k, i, rows, kk) {
+    tag(k, AX + kk * CELL + CELL / 2, AY - 5, 'k');
+    tag(k, BX + W + 5, BY + kk * CELL + 8, 'k', 'start');
+    tag(k, AX - 5, AY + i * CELL + (rows * CELL) / 2 + 4, 'i', 'end');
+  }
+
+  function drawIKJ(k, s) {
+    var i = Math.floor(s / N), kk = s % N, r, c;
+    for (r = 0; r < N; r++) for (c = 0; c < N; c++) {
+      setCell(k.cells.A[r][c], r === i ? (c === kk ? 'rd' : (c < kk ? 'past' : '')) : '');
+      setCell(k.cells.B[r][c], r === kk ? 'rd' : (r < kk ? 'past' : ''));
+      if (r < i) setCell(k.cells.C[r][c], 'sum', 1);
+      else if (r === i) setCell(k.cells.C[r][c], 'sum', (kk + 1) / N);
+      else setCell(k.cells.C[r][c], '');
+    }
+    k.over.innerHTML = '';
+    for (c = 0; c < N; c += 4) {
+      box(k, 'load', BX + c * CELL, BY + kk * CELL, 4 * CELL, CELL);
+      box(k, 'store', CX + c * CELL, CY + i * CELL, 4 * CELL, CELL);
+    }
+    marks(k, i, 1, kk);
+    k.lines.forEach(function (ln, n) { ln.className = 'ln' + (n >= 2 && n <= 4 ? ' on' : ''); });
+    regs(k, [0, 4, 8, 12].map(function (j) { return 'C[' + i + '][' + j + ':' + (j + 4) + ']'; }), true,
+      100 * (kk + 1) / N, '<b class="l">load</b> · <b class="f">add</b> · <b class="s">store</b>');
+    chips(k, [['l', 'load C ×4'], ['l', 'load B ×4'], ['l', 'load A ×1 number'], ['f', 'multiply-add ×4'], ['s', 'store C ×4']]);
+    stats(k, 4 * (s + 1), 9 * (s + 1), 4 * (s + 1));
+    return 'i = ' + i + ', k = ' + kk;
+  }
+
+  function drawREG(k, s) {
+    var blk = Math.floor(s / N), kk = s % N, i0 = 0, j0 = blk * 8, r, c;
+    for (r = 0; r < N; r++) for (c = 0; c < N; c++) {
+      var inRows = r >= i0 && r < i0 + 2, inCols = c >= j0 && c < j0 + 8;
+      setCell(k.cells.A[r][c], inRows ? (c === kk ? 'rd' : (c < kk ? 'past' : '')) : '');
+      setCell(k.cells.B[r][c], inCols ? (r === kk ? 'rd' : (r < kk ? 'past' : '')) : '');
+      if (inRows && c < j0) setCell(k.cells.C[r][c], 'sum', 1);
+      else if (inRows && inCols) { if (kk === N - 1) setCell(k.cells.C[r][c], 'sum', 1); else setCell(k.cells.C[r][c], 'held'); }
+      else setCell(k.cells.C[r][c], '');
+    }
+    k.over.innerHTML = '';
+    for (c = 0; c < 8; c += 4) {
+      box(k, 'load', BX + (j0 + c) * CELL, BY + kk * CELL, 4 * CELL, CELL);
+      for (r = 0; r < 2; r++) box(k, kk === N - 1 ? 'store' : 'reg', CX + (j0 + c) * CELL, CY + (i0 + r) * CELL, 4 * CELL, CELL);
+    }
+    box(k, 'load', AX + kk * CELL - 1, AY + i0 * CELL - 1, CELL + 2, 2 * CELL + 2);
+    marks(k, i0, 2, kk);
+    k.lines.forEach(function (ln, n) {
+      var on = n >= 3 && n <= 5, once = (n === 2 && kk === 0) || (n === 6 && kk === N - 1);
+      ln.className = 'ln' + (on || once ? ' on' : '') + (once ? ' once' : '');
+    });
+    var ops = (kk === 0 ? '<b class="l">load</b> · ' : '') + '<b class="f">add</b>' + (kk === N - 1 ? ' · <b class="s">store</b>' : '');
+    regs(k, ['acc[0][0:4]', 'acc[0][4:8]', 'acc[1][0:4]', 'acc[1][4:8]'], false, 100 * (kk + 1) / N, ops);
+    var list = [];
+    if (kk === 0) list.push(['l', 'load C ×4, once per block']);
+    list.push(['l', 'load B ×2'], ['l', 'load A ×2 numbers'], ['f', 'multiply-add ×4']);
+    if (kk === N - 1) list.push(['s', 'store C ×4, once per block']);
+    chips(k, list);
+    stats(k, 4 * (s + 1), 4 * (s + 1) + 4 * (blk + 1), 4 * (blk + (kk === N - 1 ? 1 : 0)));
+    return 'block at j = ' + j0 + ', k = ' + kk;
+  }
+
+  function drawJB(k, s) {
+    var kk = Math.floor(s / 2), j0 = (s % 2) * 8, r, c;
+    for (r = 0; r < N; r++) for (c = 0; c < N; c++) {
+      var inRows = r < 2, inCols = c >= j0 && c < j0 + 8;
+      setCell(k.cells.A[r][c], inRows ? (c === kk ? 'rd' : (c < kk ? 'past' : '')) : '');
+      setCell(k.cells.B[r][c], r === kk ? (inCols ? 'rd' : (c < j0 ? 'past' : '')) : (r < kk ? 'past' : ''));
+      if (inRows) {
+        var terms = (inCols || c < j0) ? kk + 1 : kk;
+        if (terms > 0) setCell(k.cells.C[r][c], 'sum', terms / N); else setCell(k.cells.C[r][c], '');
+      } else setCell(k.cells.C[r][c], '');
+    }
+    k.over.innerHTML = '';
+    for (c = 0; c < 8; c += 4) {
+      box(k, 'load', BX + (j0 + c) * CELL, BY + kk * CELL, 4 * CELL, CELL);
+      for (r = 0; r < 2; r++) box(k, 'store', CX + (j0 + c) * CELL, CY + r * CELL, 4 * CELL, CELL);
+    }
+    box(k, 'load', AX + kk * CELL - 1, AY - 1, CELL + 2, 2 * CELL + 2);
+    marks(k, 0, 2, kk);
+    k.lines.forEach(function (ln, n) {
+      var once = n === 3 || n === 6;
+      ln.className = 'ln' + (n >= 3 && n <= 6 ? ' on' : '') + (once ? ' once' : '');
+    });
+    regs(k, [[0, 0], [0, 4], [1, 0], [1, 4]].map(function (q) { return 'C[' + q[0] + '][' + (j0 + q[1]) + ':' + (j0 + q[1] + 4) + ']'; }),
+      true, 100 * (kk + 1) / N, '<b class="l">load</b> · <b class="f">add</b> · <b class="s">store</b>');
+    chips(k, [['l', 'load C ×4'], ['l', 'load B ×2'], ['l', 'load A ×2 numbers'], ['f', 'multiply-add ×4'], ['s', 'store C ×4']]);
+    stats(k, 4 * (s + 1), 8 * (s + 1), 4 * (s + 1));
+  }
+
+  var step = 5, timer = null;
+  function byId(x) { return document.getElementById(x); }
+  var UI = ['', '2'].map(function (sfx) {
+    return { rng: byId('rng-step' + sfx), where: byId('where' + sfx), play: byId('btn-play' + sfx),
+             prev: byId('btn-prev' + sfx), next: byId('btn-next' + sfx) };
+  });
+  function render() {
+    drawIKJ(K[0], step); drawREG(K[1], step); drawJB(K[2], step);
+    UI[0].where.textContent = 'step ' + (step + 1) + ' of ' + STEPS + ' · k = ' + (step % N);
+    UI[1].where.textContent = 'step ' + (step + 1) + ' of ' + STEPS + ' · k = ' + Math.floor(step / 2);
+    UI.forEach(function (u) { u.rng.value = step; u.play.textContent = timer ? 'Pause' : 'Play'; });
+  }
+  function go(d) { step = Math.max(0, Math.min(STEPS - 1, step + d)); render(); }
+  function stop() { if (timer) { clearInterval(timer); timer = null; } }
+  UI.forEach(function (u) {
+    u.prev.addEventListener('click', function () { stop(); go(-1); });
+    u.next.addEventListener('click', function () { stop(); go(1); });
+    u.rng.addEventListener('input', function () { stop(); step = +u.rng.value; render(); });
+    u.play.addEventListener('click', function () {
+      if (timer) { stop(); render(); return; }
+      if (step >= STEPS - 1) step = 0;
+      timer = setInterval(function () { if (step >= STEPS - 1) { stop(); render(); } else go(1); }, 700);
+      render();
+    });
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.target && e.target.type === 'range') return;
+    if (e.key === 'ArrowRight') { stop(); go(1); } else if (e.key === 'ArrowLeft') { stop(); go(-1); }
+  });
+  render();
+})();
+</script>
+</body>
+</html>

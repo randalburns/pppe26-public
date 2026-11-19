@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 246" width="700" height="246" role="img" aria-labelledby="f3">
+<style>
+  :root { --surface: #ffffff; --fg: #16201f; --muted: #586664; --t1: #b06a12; --t2: #0f7b6c; --t3: #2d5bb8; --t4: #8a4fa8; --shared: #c9d2d0; --grey: #8a9694; --good: #0f7b6c; --bad: #b3402e; }
+  text { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; fill: var(--muted); font-size: 12px; }
+  .strong { fill: var(--fg); font-weight: 600; } .good { fill: var(--good); font-weight: 600; } .bad { fill: var(--bad); font-weight: 600; }
+  .f1 { fill: var(--t1); } .f2 { fill: var(--t2); } .f3 { fill: var(--t3); } .f4 { fill: var(--t4); } .fs { fill: var(--shared); }
+  .sep { stroke: var(--surface); stroke-width: 1.5; fill: none; } .outline { fill: none; stroke: var(--grey); stroke-width: 1.2; }
+</style>
+<rect x="0" y="0" width="700" height="246" fill="#ffffff"/>
+          <title id="f3">Split the output: four threads each write their own band of C, and their arrows never meet. Split the inputs: all four threads write the same number of C</title>
+          <defs>
+            <marker id="m1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path class="f1" d="M0 0l10 5l-10 5z"/></marker>
+            <marker id="m2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path class="f2" d="M0 0l10 5l-10 5z"/></marker>
+            <marker id="m3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path class="f3" d="M0 0l10 5l-10 5z"/></marker>
+            <marker id="m4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path class="f4" d="M0 0l10 5l-10 5z"/></marker>
+          </defs>
+
+          <!-- left: split the output. Four threads, four bands, four arrows that never meet -->
+          <text x="175" y="20" text-anchor="middle" class="strong">split the output</text>
+          <circle class="f1" cx="52" cy="58" r="13"/><circle class="f2" cx="52" cy="98" r="13"/><circle class="f3" cx="52" cy="138" r="13"/><circle class="f4" cx="52" cy="178" r="13"/>
+          <g style="fill:var(--surface); font-weight:600" text-anchor="middle">
+            <text x="52" y="62" style="fill:var(--surface)">1</text><text x="52" y="102" style="fill:var(--surface)">2</text><text x="52" y="142" style="fill:var(--surface)">3</text><text x="52" y="182" style="fill:var(--surface)">4</text>
+          </g>
+          <path d="M70 58h82" fill="none" stroke="var(--t1)" stroke-width="2" marker-end="url(#m1)"/>
+          <path d="M70 98h82" fill="none" stroke="var(--t2)" stroke-width="2" marker-end="url(#m2)"/>
+          <path d="M70 138h82" fill="none" stroke="var(--t3)" stroke-width="2" marker-end="url(#m3)"/>
+          <path d="M70 178h82" fill="none" stroke="var(--t4)" stroke-width="2" marker-end="url(#m4)"/>
+          <rect class="f1" x="160" y="38" width="160" height="40"/><rect class="f2" x="160" y="78" width="160" height="40"/><rect class="f3" x="160" y="118" width="160" height="40"/><rect class="f4" x="160" y="158" width="160" height="40"/>
+          <path class="sep" d="M160 78h160M160 118h160M160 158h160"/>
+          <text x="310" y="57" text-anchor="end" style="fill:var(--surface); font-weight:600; font-size:14px">C</text>
+          <text x="175" y="220" text-anchor="middle" class="good">one writer for every number</text>
+          <text x="175" y="238" text-anchor="middle">the threads never touch the same place</text>
+
+          <!-- right: split the inputs. Four threads all write the same number -->
+          <text x="525" y="20" text-anchor="middle" class="strong">split the inputs</text>
+          <circle class="f1" cx="402" cy="58" r="13"/><circle class="f2" cx="402" cy="98" r="13"/><circle class="f3" cx="402" cy="138" r="13"/><circle class="f4" cx="402" cy="178" r="13"/>
+          <text x="402" y="62" text-anchor="middle" style="fill:var(--surface); font-weight:600">1</text><text x="402" y="102" text-anchor="middle" style="fill:var(--surface); font-weight:600">2</text><text x="402" y="142" text-anchor="middle" style="fill:var(--surface); font-weight:600">3</text><text x="402" y="182" text-anchor="middle" style="fill:var(--surface); font-weight:600">4</text>
+          <rect class="fs" x="510" y="38" width="160" height="160"/>
+          <rect class="outline" x="510" y="38" width="160" height="160"/>
+          <text x="660" y="57" text-anchor="end" class="strong" style="font-size:14px">C</text>
+          <!-- the one number, drawn as a cell with a quarter from each thread -->
+          <rect class="f1" x="578" y="106" width="12" height="12"/><rect class="f2" x="590" y="106" width="12" height="12"/><rect class="f3" x="578" y="118" width="12" height="12"/><rect class="f4" x="590" y="118" width="12" height="12"/>
+          <rect x="578" y="106" width="24" height="24" fill="none" stroke="var(--fg)" stroke-width="1.5"/>
+          <path d="M420 58 C 480 58, 520 100, 572 110" fill="none" stroke="var(--t1)" stroke-width="2" marker-end="url(#m1)"/>
+          <path d="M420 98 C 470 98, 520 108, 572 115" fill="none" stroke="var(--t2)" stroke-width="2" marker-end="url(#m2)"/>
+          <path d="M420 138 C 470 138, 520 128, 572 121" fill="none" stroke="var(--t3)" stroke-width="2" marker-end="url(#m3)"/>
+          <path d="M420 178 C 480 178, 520 136, 572 126" fill="none" stroke="var(--t4)" stroke-width="2" marker-end="url(#m4)"/>
+          <text x="590" y="150" text-anchor="middle" class="strong">one number</text>
+          <text x="525" y="220" text-anchor="middle" class="bad">four writers for every number</text>
+          <text x="525" y="238" text-anchor="middle">the same holds for all n² numbers</text>
+        </svg>

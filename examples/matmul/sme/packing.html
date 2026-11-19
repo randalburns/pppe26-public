@@ -1,0 +1,391 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Packing for SME</title>
+<style>
+/* Layout: one reading column; each idea gets one figure at full width. A is teal, B is blue, C is amber throughout. */
+:root {
+  --bg: #f4f6f6;
+  --surface: #ffffff;
+  --fg: #16201f;
+  --muted: #586664;
+  --rule: #d6dedd;
+  --a: #0f7b6c;        /* matrix A */
+  --a-soft: #cfeae5;
+  --b: #2d5bb8;        /* matrix B */
+  --b-soft: #d9e3f6;
+  --c: #b06a12;        /* matrix C and the tiles */
+  --c-soft: #f6e6cd;
+  --grey: #8a9694;
+  --font-display: "Instrument Sans", "Helvetica Neue", Arial, sans-serif;
+  --font-body: "Instrument Sans", "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1514; --surface: #161e1d; --fg: #e2ebea; --muted: #97a7a4; --rule: #27322f;
+    --a: #4fc2ae; --a-soft: #153a34; --b: #7fa4f0; --b-soft: #1c2a47; --c: #e2a551; --c-soft: #3b2c14; --grey: #78857f;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1514; --surface: #161e1d; --fg: #e2ebea; --muted: #97a7a4; --rule: #27322f;
+  --a: #4fc2ae; --a-soft: #153a34; --b: #7fa4f0; --b-soft: #1c2a47; --c: #e2a551; --c-soft: #3b2c14; --grey: #78857f;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg);
+  font: 16px/1.6 var(--font-body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 40px 64px;
+}
+main { max-width: 860px; margin: 0 auto; display: grid; gap: 44px; }
+.prose { max-width: 66ch; display: grid; gap: 12px; }
+h1, h2 { font-family: var(--font-display); text-wrap: balance; line-height: 1.15; margin: 0; }
+h1 { font-size: clamp(2rem, 5vw, 2.8rem); font-weight: 700; letter-spacing: -0.01em; }
+h2 { font-size: 1.45rem; font-weight: 600; }
+p { margin: 0; }
+section { display: grid; gap: 16px; }
+.eyebrow { font: 600 0.75rem/1 var(--font-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.lede { font-size: 1.15rem; color: var(--muted); max-width: 62ch; }
+code, .mono { font-family: var(--font-mono); font-size: 0.86em; }
+figure { margin: 0; display: grid; gap: 10px; }
+figcaption { color: var(--muted); font-size: 0.9rem; max-width: 72ch; }
+.panel { background: var(--surface); border: 1px solid var(--rule); border-radius: 8px; padding: 16px; overflow-x: auto; }
+svg { display: block; width: 100%; height: auto; max-width: 100%; }
+svg text { font-family: var(--font-mono); fill: var(--muted); font-size: 12px; }
+svg .strong { fill: var(--fg); font-weight: 600; }
+svg .ta { fill: var(--a); font-weight: 600; } svg .tb { fill: var(--b); font-weight: 600; } svg .tc { fill: var(--c); font-weight: 600; }
+.box { fill: var(--surface); stroke: var(--grey); stroke-width: 1.2; }
+.fa { fill: var(--a); } .fa-soft { fill: var(--a-soft); stroke: var(--a); stroke-width: 1; }
+.fb { fill: var(--b); } .fb-soft { fill: var(--b-soft); stroke: var(--b); stroke-width: 1; }
+.fc-soft { fill: var(--c-soft); stroke: var(--c); stroke-width: 1.2; }
+.gl { stroke: var(--grey); stroke-width: 0.5; opacity: 0.55; fill: none; }
+.arrow { stroke: var(--fg); stroke-width: 1.5; fill: none; }
+.arrow-a { stroke: var(--a); stroke-width: 1.5; fill: none; }
+.head { fill: var(--fg); } .head-a { fill: var(--a); }
+
+.bars { display: grid; gap: 18px; }
+.bar-group { display: grid; gap: 8px; }
+.bar-group h3 { margin: 0; font: 600 0.8rem/1 var(--font-mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.bar-row { display: grid; grid-template-columns: minmax(9em, 16em) 1fr 4.4em; align-items: center; gap: 12px; font-size: 0.9rem; }
+.bar-row .name { min-width: 0; }
+.track { height: 18px; background: var(--bg); border-radius: 3px; }
+.fill { height: 100%; border-radius: 3px; min-width: 2px; background: var(--grey); }
+.fill.best { background: var(--c); }
+.bar-row .v { font-family: var(--font-mono); font-variant-numeric: tabular-nums; text-align: right; font-size: 0.86rem; }
+.table-wrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 0.9rem; font-variant-numeric: tabular-nums; }
+th, td { padding: 8px 10px; text-align: right; border-bottom: 1px solid var(--rule); }
+th:first-child, td:first-child { text-align: left; }
+thead th { font-size: 0.78rem; letter-spacing: 0.04em; color: var(--muted); font-weight: 600; }
+td.hi { color: var(--c); font-weight: 700; }
+ol.steps { margin: 0; padding-left: 1.4em; display: grid; gap: 8px; max-width: 66ch; }
+.callout { border-left: 3px solid var(--c); padding: 4px 0 4px 14px; max-width: 66ch; }
+.foot { color: var(--muted); font-size: 0.85rem; border-top: 1px solid var(--rule); padding-top: 16px; max-width: 72ch; }
+@media (max-width: 560px) {
+  .bar-row { grid-template-columns: 1fr 4em; }
+  .bar-row .track { grid-column: 1 / -1; grid-row: 2; }
+}
+</style>
+</head>
+<body>
+<main>
+  <header style="display:grid; gap:14px">
+    <div class="eyebrow">Add-on to Lecture 17 · matrix multiply on the M5's matrix unit</div>
+    <h1>Packing: getting data into the shape the matrix unit wants</h1>
+    <p class="lede">The matrix unit is so fast that the slow part of matrix multiply becomes fetching the numbers. Packing is how we feed it: copy the data it is about to use into small buffers, arranged in exactly the order it will read them.</p>
+  </header>
+
+  <section>
+    <h2>What the matrix unit needs</h2>
+    <div class="prose">
+      <p>One SME instruction takes two vectors of 16 numbers and multiplies every number in the first by every number in the second. For C = A × B, those two vectors are <b>a column of A</b> and <b>a row of B</b>, for one value of k.</p>
+      <p>A vector load reads 16 numbers that sit next to each other in memory. C stores a matrix one row after another. So a row of B is easy, and a column of A is a problem.</p>
+    </div>
+    <figure>
+      <div class="panel">
+        <svg viewBox="0 0 700 262" role="img" aria-labelledby="f1">
+          <title id="f1">A column of A is spread out in memory, one number per row; a row of B is 16 numbers side by side</title>
+          <!-- A -->
+          <rect class="box" x="30" y="30" width="90" height="90"/>
+          <rect class="fa" x="66" y="30" width="8" height="90"/>
+          <text x="75" y="22" text-anchor="middle" class="ta">A, column k</text>
+          <text x="170" y="52" class="strong">in memory</text>
+          <rect class="box" x="170" y="62" width="500" height="22"/>
+          <g class="fa">
+            <rect x="188" y="62" width="6" height="22"/><rect x="238" y="62" width="6" height="22"/><rect x="288" y="62" width="6" height="22"/><rect x="338" y="62" width="6" height="22"/><rect x="388" y="62" width="6" height="22"/><rect x="438" y="62" width="6" height="22"/><rect x="488" y="62" width="6" height="22"/><rect x="538" y="62" width="6" height="22"/><rect x="588" y="62" width="6" height="22"/><rect x="638" y="62" width="6" height="22"/>
+          </g>
+          <path class="arrow" d="M194 96h44"/><path class="head" d="M238 96l-7 -4v8z"/><path class="head" d="M194 96l7 -4v8z"/>
+          <text x="250" y="100">one whole row apart: 4 KB when n = 1024</text>
+          <text x="170" y="118">the numbers of the column are scattered. No single load can fetch them</text>
+          <!-- B -->
+          <rect class="box" x="30" y="158" width="90" height="90"/>
+          <rect class="fb" x="30" y="194" width="90" height="8"/>
+          <text x="75" y="150" text-anchor="middle" class="tb">B, row k</text>
+          <text x="170" y="180" class="strong">in memory</text>
+          <rect class="box" x="170" y="190" width="500" height="22"/>
+          <rect class="fb" x="330" y="190" width="70" height="22"/>
+          <text x="170" y="232">the numbers of the row sit side by side. One load fetches 16 of them</text>
+        </svg>
+      </div>
+      <figcaption>Ordinary vector code has a "gather" instruction that collects scattered numbers. The matrix unit's mode doesn't. So A must be rearranged before the unit can use it.</figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <h2>The obvious fix costs too much</h2>
+    <div class="prose">
+      <p>The simple answer is to transpose A first: make a copy with rows and columns swapped. Then every column of A is a row of the copy, and easy to load.</p>
+      <p>Transposing touches each number once, n² in all, while the multiply does n³ work. Normally n² is small next to n³. But the matrix unit does the n³ part so quickly that the transpose is no longer small.</p>
+    </div>
+    <div class="panel table-wrap">
+      <table>
+        <thead><tr><th></th><th>n = 1024</th><th>n = 2048</th></tr></thead>
+        <tbody>
+          <tr><td>Transpose all of A</td><td>0.35 ms</td><td class="hi">11.1 ms</td></tr>
+          <tr><td>The best whole multiply</td><td>1.15 ms</td><td>10.1 ms</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="prose">
+      <p>At n = 2048 the transpose alone takes longer than the entire multiply should. Its reads and writes jump 8 KB at a time, and jumps of that size keep landing in the same few slots of the cache. This is the transpose problem from Lecture 6.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Packing: rearrange only what you are about to use</h2>
+    <div class="prose">
+      <p>We don't need all of A transposed at once. We need a small part of it, right now, in the right order. So we work on one <b>slab</b> at a time: K values of k. For that slab, we copy the pieces of A and B into two small buffers.</p>
+      <p>For A, take a block of 32 rows and the K columns of the slab. Copy it so that the 32 numbers for each k sit together. That copy is a small transpose, and it happens entirely in fast cache.</p>
+    </div>
+    <figure>
+      <div class="panel">
+        <svg viewBox="0 0 700 290" role="img" aria-labelledby="f2">
+          <title id="f2">A slab of K columns of A is cut into blocks of 32 rows; each block is copied into a buffer with one row of 32 numbers per k</title>
+          <defs>
+            <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="head" d="M0 0l10 5l-10 5z"/></marker>
+          </defs>
+          <!-- A matrix -->
+          <text x="130" y="22" text-anchor="middle" class="ta">A</text>
+          <rect class="box" x="30" y="40" width="200" height="200"/>
+          <rect class="fa-soft" x="100" y="40" width="60" height="200"/>
+          <rect class="fa" x="100" y="110" width="60" height="32"/>
+          <text x="130" y="258" text-anchor="middle">K columns: one slab of k</text>
+          <text x="92" y="130" text-anchor="end">32 rows</text>
+          <path class="gl" d="M100 110h60M100 142h60"/>
+          <!-- arrow -->
+          <path class="arrow" d="M170 126 C 260 126, 300 100, 372 100" marker-end="url(#ah)"/>
+          <text x="282" y="88" text-anchor="middle">copy and</text>
+          <text x="282" y="104" text-anchor="middle">transpose</text>
+          <!-- Ap buffer -->
+          <text x="460" y="22" text-anchor="middle" class="ta">Ap: packed block of A</text>
+          <rect class="fa-soft" x="380" y="40" width="160" height="200"/>
+          <path class="gl" d="M380 60h160M380 80h160M380 100h160M380 120h160M380 140h160M380 160h160M380 180h160M380 200h160M380 220h160"/>
+          <rect class="fa" x="380" y="100" width="160" height="20"/>
+          <text x="552" y="54">k = 0</text>
+          <text x="552" y="74">k = 1</text>
+          <text x="552" y="114" class="strong">k: 32 numbers,</text>
+          <text x="552" y="130" class="strong">A[i..i+31][k]</text>
+          <text x="552" y="234">k = K−1</text>
+          <text x="460" y="258" text-anchor="middle">32 numbers wide, K rows, read top to bottom</text>
+          <text x="460" y="278" text-anchor="middle">each row is one column of the block: ready to load</text>
+        </svg>
+      </div>
+      <figcaption>Packing A. The dark block in A is 32 rows by K columns. In the buffer it is turned on its side: each row of the buffer holds what used to be a column.</figcaption>
+    </figure>
+    <div class="prose">
+      <p>B is already stored the right way round, so it only needs copying. Take the K rows of the slab and cut them into panels 32 columns wide. Each panel becomes its own buffer.</p>
+    </div>
+    <figure>
+      <div class="panel">
+        <svg viewBox="0 0 700 290" role="img" aria-labelledby="f3">
+          <title id="f3">A slab of K rows of B is cut into panels of 32 columns; each panel is copied into a buffer with one row of 32 numbers per k</title>
+          <text x="130" y="22" text-anchor="middle" class="tb">B</text>
+          <rect class="box" x="30" y="40" width="200" height="200"/>
+          <rect class="fb-soft" x="30" y="100" width="200" height="60"/>
+          <rect class="fb" x="120" y="100" width="32" height="60"/>
+          <text x="22" y="134" text-anchor="end" transform="rotate(-90 22 134)"></text>
+          <text x="130" y="258" text-anchor="middle">K rows: the same slab of k</text>
+          <text x="136" y="92" text-anchor="middle">32 columns</text>
+          <path class="arrow" d="M156 130 C 250 130, 300 100, 372 100" marker-end="url(#ah)"/>
+          <text x="282" y="96" text-anchor="middle">copy</text>
+          <text x="460" y="22" text-anchor="middle" class="tb">Bp: packed panel of B</text>
+          <rect class="fb-soft" x="380" y="40" width="160" height="200"/>
+          <path class="gl" d="M380 60h160M380 80h160M380 100h160M380 120h160M380 140h160M380 160h160M380 180h160M380 200h160M380 220h160"/>
+          <rect class="fb" x="380" y="100" width="160" height="20"/>
+          <text x="552" y="54">k = 0</text>
+          <text x="552" y="74">k = 1</text>
+          <text x="552" y="114" class="strong">k: 32 numbers,</text>
+          <text x="552" y="130" class="strong">B[k][j..j+31]</text>
+          <text x="552" y="234">k = K−1</text>
+          <text x="460" y="258" text-anchor="middle">32 numbers wide, K rows, read top to bottom</text>
+          <text x="460" y="278" text-anchor="middle">same shape as Ap, so the kernel reads both the same way</text>
+        </svg>
+      </div>
+      <figcaption>Packing B. No transpose is needed. The copy just brings the 32 numbers for each k next to the 32 for the next k, so the kernel reads straight down the buffer.</figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <h2>Let the matrix unit do the transposing</h2>
+    <div class="prose">
+      <p>Packing A still means transposing, and transposing one number at a time is slow. The matrix unit has a neat way to do it 16 numbers at a time.</p>
+      <p>A <b>tile</b> is a 16 × 16 grid of numbers stored inside the unit. One instruction loads a row of a tile from memory. Another stores a <em>column</em> of a tile to memory. So: load 16 rows of A into a tile, then store its 16 columns. What comes out is transposed.</p>
+    </div>
+    <figure>
+      <div class="panel">
+        <svg viewBox="0 0 700 250" role="img" aria-labelledby="f4">
+          <title id="f4">Sixteen rows of A are loaded into a tile by rows, then the tile is stored by columns, giving the transpose</title>
+          <defs>
+            <pattern id="g10" width="10" height="10" patternUnits="userSpaceOnUse"><path class="gl" d="M10 0V10H0"/></pattern>
+            <marker id="aha" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="head-a" d="M0 0l10 5l-10 5z"/></marker>
+          </defs>
+          <!-- load by rows -->
+          <text x="170" y="22" text-anchor="middle" class="strong">1. load 16 rows</text>
+          <rect class="fc-soft" x="90" y="40" width="160" height="160"/>
+          <rect x="90" y="40" width="160" height="160" fill="url(#g10)"/>
+          <rect class="fa" x="90" y="70" width="160" height="10"/>
+          <path class="arrow-a" d="M20 55h62" marker-end="url(#aha)"/>
+          <path class="arrow-a" d="M20 75h62" marker-end="url(#aha)"/>
+          <path class="arrow-a" d="M20 95h62" marker-end="url(#aha)"/>
+          <path class="arrow-a" d="M20 135h62" marker-end="url(#aha)"/>
+          <path class="arrow-a" d="M20 185h62" marker-end="url(#aha)"/>
+          <text x="50" y="118" text-anchor="middle">…</text>
+          <text x="170" y="220" text-anchor="middle">each load fills one row of the tile</text>
+          <text x="170" y="238" text-anchor="middle">with 16 numbers from a row of A</text>
+          <!-- middle -->
+          <text x="350" y="116" text-anchor="middle" class="tc">same tile</text>
+          <path class="arrow" d="M300 126h100" marker-end="url(#ah2)"/>
+          <defs><marker id="ah2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="head" d="M0 0l10 5l-10 5z"/></marker></defs>
+          <!-- store by columns -->
+          <text x="530" y="22" text-anchor="middle" class="strong">2. store 16 columns</text>
+          <rect class="fc-soft" x="450" y="40" width="160" height="160"/>
+          <rect x="450" y="40" width="160" height="160" fill="url(#g10)"/>
+          <rect class="fa" x="480" y="40" width="10" height="160"/>
+          <path class="arrow-a" d="M485 200 C 485 222, 600 205, 640 150" marker-end="url(#aha)"/>
+          <text x="660" y="130" text-anchor="middle" class="ta">Ap</text>
+          <text x="530" y="220" text-anchor="middle">each store writes one column</text>
+          <text x="530" y="238" text-anchor="middle">as 16 numbers side by side</text>
+        </svg>
+      </div>
+      <figcaption>A 16 × 16 transpose in 16 loads and 16 stores, with no scalar code. The kernel uses two tiles at once to pack a 32-row block. The tiles are free for this job because packing happens before the multiply for that slab starts.</figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <h2>What the kernel sees after packing</h2>
+    <div class="prose">
+      <p>The multiply itself is now simple. For each 32 × 32 block of C, the kernel walks down one block of Ap and one panel of Bp together. At each step it loads 32 numbers from each, as two vectors of 16, and does four outer products into four tiles.</p>
+    </div>
+    <figure>
+      <div class="panel">
+        <svg viewBox="0 0 700 270" role="img" aria-labelledby="f5">
+          <title id="f5">For each k the kernel loads two vectors from Ap and two from Bp, and adds four outer products into four tiles that hold a 32 by 32 block of C</title>
+          <!-- Ap -->
+          <text x="90" y="22" text-anchor="middle" class="ta">Ap</text>
+          <rect class="fa-soft" x="30" y="40" width="120" height="180"/>
+          <path class="gl" d="M30 60h120M30 80h120M30 100h120M30 120h120M30 140h120M30 160h120M30 180h120M30 200h120M90 40v180"/>
+          <rect class="fa" x="30" y="100" width="120" height="20"/>
+          <text x="60" y="114" text-anchor="middle" style="fill:var(--surface)">a0</text>
+          <text x="120" y="114" text-anchor="middle" style="fill:var(--surface)">a1</text>
+          <path class="arrow" d="M18 46v168" marker-end="url(#ah2)"/>
+          <text x="90" y="240" text-anchor="middle">read in order</text>
+          <!-- Bp -->
+          <text x="250" y="22" text-anchor="middle" class="tb">Bp</text>
+          <rect class="fb-soft" x="190" y="40" width="120" height="180"/>
+          <path class="gl" d="M190 60h120M190 80h120M190 100h120M190 120h120M190 140h120M190 160h120M190 180h120M190 200h120M250 40v180"/>
+          <rect class="fb" x="190" y="100" width="120" height="20"/>
+          <text x="220" y="114" text-anchor="middle" style="fill:var(--surface)">b0</text>
+          <text x="280" y="114" text-anchor="middle" style="fill:var(--surface)">b1</text>
+          <text x="250" y="240" text-anchor="middle">read in order</text>
+          <text x="170" y="258" text-anchor="middle">row k of each buffer: 4 loads</text>
+          <!-- arrows to tiles -->
+          <path class="arrow" d="M316 110 C 360 110, 380 120, 420 120" marker-end="url(#ah2)"/>
+          <!-- tiles 2x2 -->
+          <text x="545" y="22" text-anchor="middle" class="tc">a 32 × 32 block of C, in four tiles</text>
+          <text x="505" y="42" text-anchor="middle" class="tb">b0</text>
+          <text x="585" y="42" text-anchor="middle" class="tb">b1</text>
+          <text x="450" y="94" text-anchor="end" class="ta">a0</text>
+          <text x="450" y="174" text-anchor="end" class="ta">a1</text>
+          <rect class="fc-soft" x="465" y="50" width="80" height="80"/>
+          <rect class="fc-soft" x="545" y="50" width="80" height="80"/>
+          <rect class="fc-soft" x="465" y="130" width="80" height="80"/>
+          <rect class="fc-soft" x="545" y="130" width="80" height="80"/>
+          <text x="505" y="86" text-anchor="middle" class="strong">tile 0</text><text x="505" y="104" text-anchor="middle">+= a0 × b0</text>
+          <text x="585" y="86" text-anchor="middle" class="strong">tile 1</text><text x="585" y="104" text-anchor="middle">+= a0 × b1</text>
+          <text x="505" y="166" text-anchor="middle" class="strong">tile 2</text><text x="505" y="184" text-anchor="middle">+= a1 × b0</text>
+          <text x="585" y="166" text-anchor="middle" class="strong">tile 3</text><text x="585" y="184" text-anchor="middle">+= a1 × b1</text>
+          <text x="545" y="232" text-anchor="middle">4 instructions, 1,024 multiply-adds</text>
+          <text x="545" y="250" text-anchor="middle">each loaded vector is used twice</text>
+        </svg>
+      </div>
+      <figcaption>Both streams are read straight through, 128 bytes per step, so every load is the next thing in memory. After K steps the four tiles are stored into C.</figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <h2>Did it work?</h2>
+    <figure>
+      <div class="panel bars">
+        <div class="bar-group">
+          <h3>n = 1024</h3>
+          <div class="bar-row"><span class="name">Transpose all of A first</span><div class="track"><div class="fill" style="width:69.3%"></div></div><span class="v">1,386</span></div>
+          <div class="bar-row"><span class="name">Pack with ordinary loops</span><div class="track"><div class="fill" style="width:56.8%"></div></div><span class="v">1,135</span></div>
+          <div class="bar-row"><span class="name">Pack inside the matrix unit</span><div class="track"><div class="fill best" style="width:93.3%"></div></div><span class="v">1,866</span></div>
+          <div class="bar-row"><span class="name">Apple's library</span><div class="track"><div class="fill" style="width:90.9%"></div></div><span class="v">1,817</span></div>
+        </div>
+        <div class="bar-group">
+          <h3>n = 2048</h3>
+          <div class="bar-row"><span class="name">Transpose all of A first</span><div class="track"><div class="fill" style="width:24.3%"></div></div><span class="v">486</span></div>
+          <div class="bar-row"><span class="name">Pack with ordinary loops</span><div class="track"><div class="fill" style="width:53.4%"></div></div><span class="v">1,067</span></div>
+          <div class="bar-row"><span class="name">Pack inside the matrix unit</span><div class="track"><div class="fill best" style="width:84.8%"></div></div><span class="v">1,696</span></div>
+          <div class="bar-row"><span class="name">Apple's library</span><div class="track"><div class="fill" style="width:93%"></div></div><span class="v">1,860</span></div>
+        </div>
+      </div>
+      <figcaption>GFLOP/s (billions of floating-point operations per second), one thread on an Apple M5, 32-bit floats. Bars are drawn to 2,000. The unit's peak with no memory access at all is 2,160. Apple's library is <code>sgemm</code> from Accelerate; at n = 2048 it varied from 1,380 to 1,870 between runs.</figcaption>
+    </figure>
+    <div class="prose">
+      <p>Two things stand out. Packing in small pieces matters most for big matrices: 3.5 times faster at n = 2048. And <em>how</em> you pack matters as much as whether you pack. The first version packed with ordinary loops, one number at a time, and packing took 30–40% of the run. At n = 1024 it was slower than not packing at all.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>How big should a slab be?</h2>
+    <div class="panel table-wrap">
+      <table>
+        <thead><tr><th>Slab size K</th><th>64</th><th>256</th><th>512</th><th>1024</th><th>2048</th></tr></thead>
+        <tbody>
+          <tr><td>n = 1024</td><td>944</td><td>1,631</td><td>1,768</td><td class="hi">1,866</td><td>—</td></tr>
+          <tr><td>n = 2048</td><td>—</td><td>1,412</td><td>1,463</td><td class="hi">1,696</td><td>1,062</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="prose">
+      <p><b>Too small is slow.</b> At the start of every slab, each block of C has to be loaded into the tiles, and at the end stored back. With K = 64 that happens 16 times for every block. Fewer, bigger slabs mean less of this.</p>
+      <p><b>Too big is slow.</b> The two packed buffers hold n × K numbers each. At n = 2048 and K = 2048 that is 16 MB each, more than the M5's fast shared cache can hold, so the kernel is back to fetching from main memory.</p>
+      <p>The best slab is the biggest one whose buffers still fit in the cache. As with the tile sizes in Lecture 17, we found it by trying several and measuring.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>The whole recipe</h2>
+    <ol class="steps">
+      <li>Take the next slab: K values of k.</li>
+      <li>Pack A. For each block of 32 rows, load its K columns into tiles by rows and store them by columns into Ap.</li>
+      <li>Pack B. Copy the slab's K rows into Bp, one panel for every 32 columns.</li>
+      <li>For each 32 × 32 block of C: load it into four tiles, add K outer products reading straight down Ap and Bp, and store it back.</li>
+      <li>Go to the next slab.</li>
+    </ol>
+    <p class="callout">Packing spends time copying data in order to save more time reading it. It pays off whenever the arithmetic is fast enough that fetching the numbers is what holds the program back. Math libraries pack for ordinary vector code too; the matrix unit just makes it essential.</p>
+  </section>
+
+  <p class="foot">Code: <span class="mono">examples/matmul/sme/mm_sme.cpp</span>, kernels <code>sme4</code> and <code>sme4_pack_k&lt;K&gt;</code>; run <span class="mono">make run</span> there (Apple silicon M4 or later). All numbers were measured on an Apple M5, best of 10 runs. "Pack with ordinary loops" is an earlier version of the kernel that is described in the code comments but no longer in the file.</p>
+</main>
+</body>
+</html>

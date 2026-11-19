@@ -4,9 +4,10 @@ Plot the matrix-multiply kernels from mm_bench.cpp on the single-core
 roofline, one plot per matrix size. Reuses roofline.py from the roofline
 examples for the ceilings and label placement.
 
-Usage: python3 plot_mm.py <results.csv> <ceilings.txt> [--machine NAME]
+Usage: python3 plot_mm.py <results.csv> <ceilings.txt> [--reg results_reg.csv] [--machine NAME]
 
 results.csv   RESULT,<build>,<n>,<kernel>,<ms>,<GFLOP/s> lines from mm_bench
+--reg         the register-tiling run (make run_reg); adds its reg* kernels
 ceilings.txt  output of roofline_example's stream and peak_flops
               (PEAK_BANDWIDTH=, PEAK_GFLOPS_SIMD_FMA=, ...)
 
@@ -33,6 +34,8 @@ STEPS = [
     ("fast", "ikj",       "ikj"),
     ("fast", "tile_k",    "ikj, k tiled"),
     ("fast", "tile_ijk",  "ikj, i,j,k tiled"),
+    ("fast", "reg4x16",   "register tiled 4x16"),
+    ("fast", "reg",       "register tiled + k tiled"),
 ]
 
 
@@ -65,6 +68,15 @@ def points_for(rows, n):
                 continue
             best = max(cands, key=lambda r: r[4])
             pts.append((f"{label} (T={best[2][len(prefix):]})", ai, best[4]))
+        elif prefix == "reg":
+            # the best register tile with k blocked: reg<M>x<R>_k<K>
+            cands = [r for r in rows if r[0] == build and r[1] == n
+                     and r[2].startswith("reg") and "_k" in r[2]]
+            if not cands:
+                continue
+            best = max(cands, key=lambda r: r[4])
+            shape, kc = best[2][3:].split("_k")
+            pts.append((f"{label} ({shape}, KC={kc})", ai, best[4]))
         else:
             for r in rows:
                 if r[0] == build and r[1] == n and r[2] == prefix:
@@ -77,11 +89,14 @@ def main():
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("results")
     ap.add_argument("ceilings")
+    ap.add_argument("--reg", default=None)
     ap.add_argument("--machine", default="")
     ns = ap.parse_args()
 
     c = read_ceilings(ns.ceilings)
     rows = read_results(ns.results)
+    if ns.reg:  # only the reg* kernels; ikj and tile_k16 are already in results
+        rows += [r for r in read_results(ns.reg) if r[2].startswith("reg")]
     machine = f" — {ns.machine}" if ns.machine else ""
     for n in sorted({r[1] for r in rows}):
         roofline.plot_roofline(

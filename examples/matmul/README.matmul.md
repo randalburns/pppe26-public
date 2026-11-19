@@ -12,6 +12,22 @@ The lecture is [17.MM.md](../../course_materials/17.MM.md).
   * [Makefile](Makefile) — builds the source three ways and runs everything
   * [plot_mm.py](plot_mm.py) — the roofline plots, reusing
     [roofline.py](../roofline/roofline_example/roofline.py)
+  * [register_tiling.html](register_tiling.html) — a self-contained page on
+    the register-tiled kernel: the micro-kernel, the accumulator count, and
+    every measurement. Open it in a browser
+  * [loop_order_stepper.html](loop_order_stepper.html) — a self-contained page that
+    steps `i,k,j` and the register-tiled kernel side by side, to show why k
+    goes back inside
+  * [why_split_c.html](why_split_c.html) — a self-contained page on why threads
+    split the output C and not the inputs A and B
+  * [strips_or_squares.html](strips_or_squares.html) — a self-contained page on
+    dividing C among threads in strips or squares, and what each thread reads
+  * [matrix_units.html](matrix_units.html) — a self-contained page on hardware
+    built for matrix multiply: Apple's SME unit, Intel AMX, AMD, and NVIDIA
+    Tensor Cores, with Accelerate's `sgemm` measured on the M5
+  * [sme/](sme/README.sme.md) — an add-on: the same multiply written for the
+    M5's matrix unit with Arm SME, 1,870 GFLOP/s on one thread (Apple silicon
+    M4 or later)
 
 | kernel | loop | blog's name |
 |---|---|---|
@@ -20,6 +36,7 @@ The lecture is [17.MM.md](../../course_materials/17.MM.md).
 | `ikj` | inner loop walks rows of B and C | cache-aware loop reorder (RIC) |
 | `tile_k<T>` | `ikj` with k blocked by T, blocks outermost | + L1 tiling on I |
 | `tile_ijk<T>` | i, j and k all blocked by T | tiling on multiple dimensions |
+| `reg<M>x<R>[_k<K>]` | an M × R block of C held in registers for the whole k loop; optionally k blocked by K | beyond the blog: BLIS's micro-kernel |
 
 The blog's first step is a change of flags, not of code, so the Makefile
 compiles the same file three times:
@@ -33,8 +50,9 @@ compiles the same file three times:
 ## Run
 
 ```bash
-make plot      # about 3 minutes; writes results.M5.csv, ceilings.M5.txt,
-               # mm_roofline_1024.png and mm_roofline_2048.png
+make plot      # about 4 minutes; writes results.M5.csv, results_reg.M5.csv,
+               # ceilings.M5.txt, mm_roofline_1024.png and mm_roofline_2048.png
+make run_reg   # just the register-tiling sweep, about 40 s
 ```
 
 The single-core ceilings come from `stream` and `peak_flops` in
@@ -63,12 +81,15 @@ GFLOP/s, one M5 performance core. Ceilings: 112 GB/s, 130 GFLOP/s SIMD FMA.
 | `ikj` | 36.0 | 35.9 |
 | `tile_k`, best T | 43.0 (T=16) | 40.7 (T=8) |
 | `tile_ijk`, best T | 31.3 (T=256) | 28.4 (T=256) |
+| `reg4x16` | 105.1 | 65.2 |
+| `reg4x16_k64` | **113.6** | **101.4** |
 
-The full tile-size sweep, T = 4 to 256, is in [results.M5.csv](results.M5.csv).
+The full tile-size sweep, T = 4 to 256, is in [results.M5.csv](results.M5.csv);
+every register tile is in [results_reg.M5.csv](results_reg.M5.csv).
 
-![n = 1024: every kernel on one vertical line at AI 171, from 0.67 GFLOP/s for the -O0 naive loop up to 43 GFLOP/s for ikj with k tiled, all far below the 130 GFLOP/s SIMD FMA ceiling](mm_roofline_1024.png)
+![n = 1024: every kernel on one vertical line at AI 171, from 0.67 GFLOP/s for the -O0 naive loop up to 43 GFLOP/s for ikj with k tiled, then the register-tiled kernels at 105 and 114 GFLOP/s, just under the 130 GFLOP/s SIMD FMA ceiling](mm_roofline_1024.png)
 
-![n = 2048: the same kernels at AI 341, at nearly the same heights](mm_roofline_2048.png)
+![n = 2048: the same kernels at AI 341; register tiling alone reaches 65 GFLOP/s, and with k blocked 101](mm_roofline_2048.png)
 
 ## What the numbers say
 
@@ -97,7 +118,43 @@ and blocking won 3×.
 **The ceiling.** The best kernel reaches 33% of peak. Each vector FMA in the
 inner loop needs a load of B, a load of C and a store of C, so loads and
 stores, not FMAs, set the pace. A register tile of C removes the load and
-store of C and reuses each load of A and B across several FMAs:
+store of C and reuses each load of A and B across several FMAs. That is the
+next section.
+
+## Register tiling
+
+`reg<M>x<R>` keeps an M × R block of C in vector registers (`acc`, a local
+array) for the whole k loop. Each k step loads M values of A and R/4 vectors
+of B and does M·R/4 vector FMAs, so each B vector is used M times and each A
+value R times. C is loaded and stored once per block. `_k<K>` blocks k as
+`tile_k` does.
+
+GFLOP/s at n = 1024, no k blocking:
+
+| tile | 4×4 | 1×16 | 2×16 | 4×8 | 4×16 | 8×8 | 8×16 | 16×16 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| accumulator vectors | 4 | 4 | 8 | 8 | 16 | 16 | 32 | 64 |
+| GFLOP/s | 31.8 | 29.3 | 58.8 | 62.5 | **105.1** | 104.5 | 81.1 | 53.3 |
+
+**Accumulators cover FMA latency.** A performance core issues 4 vector FMAs
+per cycle, each taking about 4 cycles (assumed from earlier Apple cores, not
+measured here), so it needs 16 independent accumulators in flight. With 4
+the tiles reach a quarter of peak, with 8 half, with 16 about 80%. 8×16 needs
+32 accumulators plus 4 registers for B, more than the 32 vector registers,
+and spills; at 16×16 `acc` stays on the stack.
+
+**At n = 2048 it needs cache tiling too.** B (4 MB) fits in the 16 MB L2 at
+n = 1024; at 2048 (16 MB) it doesn't, and without k blocking every block of
+rows re-reads all of B: 65 GFLOP/s. With k blocked by 64, a 512 KB panel of
+B stays in L2: 101 GFLOP/s.
+
+**Read the assembly.** Left alone, clang vectorized the 8×8 block along k,
+spilled almost every accumulator, and ran at 39 GFLOP/s.
+`#pragma clang loop vectorize(disable)` on the k loop leaves it to the SLP
+vectorizer, which works across the row of B: 107 GFLOP/s.
+
+The rest of the gap to peak is what BLAS libraries close by packing A and B
+into contiguous panels and writing the micro-kernel by hand.
 [matmul_naive_bench.cpp](../roofline/roofline_example/matmul_naive_bench.cpp)
 reaches 90% of peak that way.
 
