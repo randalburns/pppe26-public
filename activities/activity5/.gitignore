@@ -1,0 +1,7 @@
+data/
+serial
+part1_omp
+part1_cilk
+part2_omp
+*_ref
+index_bench
